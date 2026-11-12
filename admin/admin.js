@@ -1,68 +1,138 @@
-/* لوحة تحكم بنك المبادرات
- * - تعمل كلها في المتصفح: التعديلات تُحفظ كمسودة محلية، ثم تُنشر إلى GitHub أو تُصدَّر كملف.
- * - طلبات «قدّم فكرتك» تحتوي بيانات شخصية: تُحفظ محليًا فقط ولا تُنشر أبدًا مع بيانات الموقع.
+/* لوحة تحكم بنك المبادرات — على نظام لوحة تحكم المنتدى
+ * - كل التعديلات تُحفظ مسودة في المتصفح، وتُعاين، ثم تُنشر إلى GitHub أو تُصدَّر كملف.
+ * - طلبات «قدّم فكرتك» فيها بيانات شخصية: تبقى على هذا الجهاز ولا تُنشر مع بيانات الموقع.
  */
 (function () {
   'use strict';
-  const { esc, icon, fmtDate, num } = IB;
-  const SUBS_KEY = 'ib_admin_submissions';
-  const GH_KEY = 'ib_gh';
-  let view; // يُعاد إنشاؤه في كل تنقّل لإزالة المستمعين السابقين
+  const { esc, fmtDate } = IB;
+  const SUBS_KEY = 'ib_admin_submissions', GH_KEY = 'ib_gh', LOG_KEY = 'ib_admin_log', THEME_KEY = 'ib-admin-theme';
   const $ = (s, r) => (r || document).querySelector(s);
   const $$ = (s, r) => [...(r || document).querySelectorAll(s)];
   const src = (p) => (!p ? '' : /^(https?:|data:|blob:)/.test(p) ? p : '../' + p);
   const clone = (o) => JSON.parse(JSON.stringify(o));
   const uid = () => Date.now() + Math.floor(Math.random() * 1000);
-  const GOVS = ['شمال غزة', 'غزة', 'الوسطى', 'خان يونس', 'رفح', 'الضفة الغربية'];
-  const STATUS = { published: ['منشورة', 'pub'], draft: ['مسودة', 'draft'], archived: ['مؤرشفة', 'archived'] };
-  const SUB_STATUS = { new: ['جديد', 'new'], review: ['قيد المراجعة', 'review'], accepted: ['مقبول', 'accepted'], rejected: ['مرفوض', 'rejected'] };
-  const BLOCK_KINDS = { section: 'قسم نصي', quote: 'اقتباس', info: 'بطاقات معلومات', gallery: 'معرض صور', team: 'فريق المبادرة', closing: 'خاتمة' };
+  const fmt = (n) => Number(n || 0).toLocaleString('en-US');
 
-  /* ---------------- الحالة ---------------- */
+  /* ---------- الأيقونات ---------- */
+  const I = {
+    home: '<path d="M3 11 12 4l9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
+    spark: '<path d="M12 3l2.2 5.3L20 9l-4.4 3.8L17 19l-5-3-5 3 1.4-6.2L4 9l5.8-.7z"/>',
+    news: '<path d="M4 5h13v14H5a1 1 0 0 1-1-1z"/><path d="M17 9h3v9a1 1 0 0 1-2 0V9M8 9h5M8 13h5M8 16h3"/>',
+    bulb: '<path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.6 10.8c.7.6 1.1 1.3 1.1 2.2h5c0-.9.4-1.6 1.1-2.2A6 6 0 0 0 12 3z"/>',
+    layers: '<path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/>',
+    tag: '<path d="M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9z"/><circle cx="8" cy="8" r="1.5"/>',
+    hand: '<path d="M7 11V6a1.5 1.5 0 0 1 3 0v4M10 10V4.5a1.5 1.5 0 0 1 3 0V10M13 10V5.5a1.5 1.5 0 0 1 3 0V12M16 9a1.5 1.5 0 0 1 3 0v5a7 7 0 0 1-7 7h-1a6 6 0 0 1-5-3l-2.5-4a1.5 1.5 0 0 1 2.5-1.6L7 14"/>',
+    quote: '<path d="M10 7H6a2 2 0 0 0-2 2v4h5v5H4M20 7h-4a2 2 0 0 0-2 2v4h5v5h-5"/>',
+    image: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/>',
+    layout: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/>',
+    gear: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>',
+    form: '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/>',
+    inbox: '<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5h13L22 12v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-6z"/>',
+    send: '<path d="M22 2 11 13M22 2l-7 20-4-9-9-4z"/>',
+    clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+    plus: '<path d="M12 5v14M5 12h14"/>',
+    search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
+    edit: '<path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
+    copy: '<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/>',
+    trash: '<path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>',
+    eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+    ext: '<path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/>',
+    chev: '<path d="m15 18-6-6 6-6"/>',
+    up: '<path d="m18 15-6-6-6 6"/>', down: '<path d="m6 9 6 6 6-6"/>',
+    right: '<path d="m9 18 6-6-6-6"/>', left: '<path d="m15 18-6-6 6-6"/>',
+    upload: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>',
+    download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>',
+    pin: '<path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>',
+    users: '<circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.5"/><path d="M15.5 14.2A5 5 0 0 1 21 19"/>',
+    alert: '<path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>',
+    lock: '<rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+    check: '<path d="M5 12l5 5L20 7"/>',
+    moon: '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>',
+    menu: '<path d="M4 6h16M4 12h16M4 18h16"/>',
+    x: '<path d="M6 6l12 12M18 6 6 18"/>',
+    mail: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>',
+    globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9S14.5 18.4 12 21c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/>',
+    github: '<path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6 0 0 0-1.3-3.2 4.2 4.2 0 0 0-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3 0 0 0-6.2 0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2 0 0 0-.1 3.2A4.6 4.6 0 0 0 4 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/>',
+  };
+  const svg = (n, s = '') => `<svg ${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${I[n] || I.spark}</svg>`;
+
+  /* ---------- الأقسام ---------- */
+  const GROUPS = [
+    { id: 'main', label: 'لوحة التحكم', c: 'var(--orange)', items: ['home'] },
+    { id: 'content', label: 'المحتوى', c: 'var(--orange)', items: ['initiatives', 'posts', 'ideas'] },
+    { id: 'structure', label: 'بنية الموقع', c: 'var(--teal)', items: ['projects', 'taxonomies', 'partners', 'stories', 'media'] },
+    { id: 'site', label: 'إعدادات الموقع', c: 'var(--yellow)', items: ['homepage', 'general', 'forms'] },
+    { id: 'requests', label: 'الطلبات', c: 'var(--blue)', items: ['submissions'] },
+    { id: 'admin', label: 'الإدارة', c: 'var(--violet)', items: ['publish', 'log'] },
+  ];
+  const S = {
+    home: { t: 'الرئيسية', i: 'home' },
+    initiatives: { t: 'المبادرات', i: 'spark', d: 'مكتبة المبادرات: النصوص والصور والفرق والتصنيف.' },
+    posts: { t: 'الإعلانات والأخبار', i: 'news', d: 'الدعوات المفتوحة وقصص المبادرات المنشورة في صفحة الإعلانات.' },
+    ideas: { t: 'بنك الأفكار', i: 'bulb', d: 'أفكار ملهمة تظهر في صفحة «بنك الأفكار» العامة، بلا بيانات شخصية.' },
+    projects: { t: 'المسارات والمشاريع', i: 'layers', d: 'الأطر التي نُفذت ضمنها المبادرات، مثل «الوصول للجميع» و«SDF Youth Hub».' },
+    taxonomies: { t: 'التصنيفات', i: 'tag', d: 'المجالات والفئات المستهدفة والمحافظات التي تعتمد عليها فلاتر المكتبة.' },
+    partners: { t: 'الشركاء', i: 'hand', d: 'شعارات الشركاء وروابطهم كما تظهر في الموقع.' },
+    stories: { t: 'قصص الميدان', i: 'quote', d: 'شهادات «ماذا يقول المبادرون» في الصفحة الرئيسية.' },
+    media: { t: 'الوسائط', i: 'image', d: 'كل الصور المستخدمة في الموقع في مكان واحد.' },
+    homepage: { t: 'الصفحة الرئيسية للموقع', i: 'layout', d: 'الأرقام والقيم والصورة الرئيسية والمبادرات المميزة.' },
+    general: { t: 'الإعدادات العامة', i: 'gear', d: 'الهوية، من نحن، التواصل، والصفحات القانونية.' },
+    forms: { t: 'نموذج «قدّم فكرتك»', i: 'form', d: 'حقول النموذج، والموافقة المستنيرة، ورابط استقبال الطلبات.' },
+    submissions: { t: 'طلبات المبادرات', i: 'inbox', d: 'ما يصل من نموذج «قدّم فكرتك»، مرتبًا حسب مرحلة الدراسة.' },
+    publish: { t: 'النشر والنسخ الاحتياطي', i: 'send', d: 'انشر المسودة إلى الموقع، أو صدّرها واستوردها.' },
+    log: { t: 'سجل التعديلات', i: 'clock', d: 'ما تغيّر في اللوحة على هذا الجهاز ومتى.' },
+  };
+  GROUPS.forEach((g) => g.items.forEach((k) => { S[k].g = g; S[k].c = g.c; }));
+
+  const GOVS = ['شمال غزة', 'غزة', 'الوسطى', 'خان يونس', 'رفح', 'الضفة الغربية'];
+  const ST = { published: ['منشورة', 'st-pub'], draft: ['مسودة', 'st-draft'], archived: ['مؤرشفة', 'st-closed'] };
+  const SUB = { new: ['جديدة', 'var(--blue)'], review: ['قيد الدراسة', 'var(--yellow)'], accepted: ['مقبولة', 'var(--teal)'], rejected: ['معتذر عنها', 'var(--red)'] };
+  const BLOCK = { section: ['قسم نصي', 'var(--blue)'], quote: ['اقتباس', 'var(--violet)'], info: ['بطاقات معلومات', 'var(--teal)'], gallery: ['معرض صور', 'var(--orange)'], team: ['فريق المبادرة', 'var(--yellow)'], closing: ['خاتمة', 'var(--ink-3)'] };
+  const PALETTE = ['var(--orange)', 'var(--blue)', 'var(--teal)', 'var(--yellow)', 'var(--violet)', 'var(--red)'];
+
+  /* ---------- الحالة ---------- */
   const PUB = IB.published();
+  PUB.ideas = PUB.ideas || [];
   let D = IB.draft() || clone(PUB);
-  D.ideas = D.ideas || []; D.site.forms = D.site.forms || { endpoint: '' };
-  delete D.submissions; // لا تُخزَّن الطلبات ضمن بيانات الموقع
+  D.ideas = D.ideas || []; D.site.forms = D.site.forms || { endpoint: '' }; delete D.submissions;
   let SUBS = loadSubs();
+  let LOG = []; try { LOG = JSON.parse(IB.safeGet(LOG_KEY) || '[]'); } catch (e) { LOG = []; }
 
   function loadSubs() {
     let list = []; try { list = JSON.parse(IB.safeGet(SUBS_KEY) || '[]'); } catch (e) { list = []; }
-    // دمج الطلبات التي أرسلها نموذج الموقع على هذا الجهاز
-    let incoming = []; try { incoming = JSON.parse(IB.safeGet('ib_submissions') || '[]'); } catch (e) { incoming = []; }
+    let inc = []; try { inc = JSON.parse(IB.safeGet('ib_submissions') || '[]'); } catch (e) { inc = []; }
     const ids = new Set(list.map((s) => s.id));
-    incoming.forEach((s) => { if (!ids.has(s.id)) list.unshift(s); });
+    inc.forEach((s) => { if (!ids.has(s.id)) list.unshift(s); });
     return list;
   }
-  function saveSubs() { IB.safeSet(SUBS_KEY, JSON.stringify(SUBS)); updateBadges(); }
-
-  function dirty() { return JSON.stringify(strip(D)) !== JSON.stringify(strip(PUB)); }
-  function strip(o) { const c = clone(o); delete c.generatedAt; delete c.submissions; return c; }
+  const saveSubs = () => { IB.safeSet(SUBS_KEY, JSON.stringify(SUBS)); renderNav(current); };
+  const strip = (o) => { const c = clone(o); delete c.generatedAt; delete c.submissions; c.ideas = c.ideas || []; return c; };
+  const dirty = () => JSON.stringify(strip(D)) !== JSON.stringify(strip(PUB));
   let saveT;
-  function save(silent) {
+  function save(msg) {
     clearTimeout(saveT);
+    const s = $('#saved'); if (s) { s.classList.add('dirty'); s.lastElementChild.textContent = 'يحفظ…'; }
     saveT = setTimeout(() => {
-      if (!IB.safeSet(IB.DRAFT_KEY, JSON.stringify(D))) toast('تعذّر حفظ المسودة: مساحة المتصفح ممتلئة (الصور المرفوعة محليًا كبيرة). انشر أو صدّر البيانات.', true);
-      updateStatus(); if (!silent) toast('تم الحفظ في المسودة');
-    }, 250);
+      if (!IB.safeSet(IB.DRAFT_KEY, JSON.stringify(D))) toast('تعذّر حفظ المسودة: مساحة المتصفح ممتلئة. انشر أو صدّر البيانات.', null, true);
+      const s2 = $('#saved'); if (s2) { s2.classList.remove('dirty'); s2.lastElementChild.textContent = 'حُفظت المسودة'; }
+      syncBadge(); if (msg) toast(msg);
+    }, 300);
   }
-  function updateStatus() {
-    const s = $('#status'); const d = dirty();
-    s.className = 'status' + (d ? ' dirty' : '');
-    s.innerHTML = `<span class="dot"></span>${d ? 'تغييرات غير منشورة' : 'متزامن مع المنشور'}`;
-  }
-  function updateBadges() {
-    const n = SUBS.filter((s) => s.status === 'new').length;
-    const b = $('[data-badge="subs"]'); if (b) { b.textContent = n; b.hidden = !n; }
+  function log(text) { LOG.unshift({ t: text, at: new Date().toISOString() }); LOG = LOG.slice(0, 200); IB.safeSet(LOG_KEY, JSON.stringify(LOG)); }
+  function syncBadge() { const s = $('#sync'); if (!s) return; const d = dirty(); s.className = 'sync' + (d ? ' dirty' : ''); s.innerHTML = `<i></i><span>${d ? 'تغييرات غير منشورة' : 'متزامن مع الموقع'}</span>`; }
+
+  let toastTimer;
+  function toast(msg, undo, err) {
+    const t = $('#toast');
+    t.innerHTML = esc(msg) + (undo ? ' <button>تراجع</button>' : '');
+    t.className = 'toast show' + (err ? ' err' : '');
+    if (undo) t.querySelector('button').onclick = () => { undo(); t.classList.remove('show'); };
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 3600);
   }
 
-  function toast(m, err) {
-    const t = $('#toast'); t.textContent = m; t.className = 'toast on' + (err ? ' err' : '');
-    clearTimeout(t._t); t._t = setTimeout(() => { t.className = 'toast'; }, 2600);
-  }
-
-  /* ---------------- ربط الحقول بالمسار ---------------- */
-  function getPath(o, p) { return p.split('.').reduce((a, k) => (a == null ? a : a[k]), o); }
-  function setPath(o, p, v) { const ks = p.split('.'); const last = ks.pop(); const t = ks.reduce((a, k) => a[k], o); t[last] = v; }
+  /* ---------- ربط الحقول ---------- */
+  const getPath = (o, p) => p.split('.').reduce((a, k) => (a == null ? a : a[k]), o);
+  const setPath = (o, p, v) => { const ks = p.split('.'); const last = ks.pop(); ks.reduce((a, k) => a[k], o)[last] = v; };
   function readVal(el) {
     const t = el.dataset.t;
     if (el.type === 'checkbox') return el.checked;
@@ -71,175 +141,209 @@
     if (t === 'tags') return el.value.split(/[,،]/).map((x) => x.trim()).filter(Boolean);
     return el.value;
   }
-  function fmtVal(v, t) {
-    if (t === 'lines') return (v || []).join('\n');
-    if (t === 'tags') return (v || []).join('، ');
-    return v == null ? '' : v;
-  }
-  function bind(root, base, onChange) {
-    const h = (e) => {
-      const el = e.target.closest('[data-p]'); if (!el) return;
-      setPath(base, el.dataset.p, readVal(el)); save(true);
-      if (onChange) onChange(el);
-    };
+  const fmtVal = (v, t) => (t === 'lines' ? (v || []).join('\n') : t === 'tags' ? (v || []).join('، ') : v == null ? '' : v);
+  function bind(root, base, after) {
+    const h = (e) => { const el = e.target.closest('[data-p]'); if (!el || !root.contains(el)) return; setPath(base, el.dataset.p, readVal(el)); save(); if (after) after(el); };
     root.addEventListener('input', h); root.addEventListener('change', h);
   }
-  // مولّدات حقول
-  const fIn = (p, label, v, o = {}) => `<div class="fld ${o.cls || ''}"><label>${label}</label><input class="in" data-p="${p}" ${o.t ? `data-t="${o.t}"` : ''} type="${o.type || 'text'}" value="${esc(fmtVal(v, o.t))}" ${o.ph ? `placeholder="${esc(o.ph)}"` : ''} ${o.list ? `list="${o.list}"` : ''} ${o.dir ? `dir="${o.dir}"` : ''}>${o.h ? `<div class="h">${o.h}</div>` : ''}</div>`;
-  const fTa = (p, label, v, o = {}) => `<div class="fld ${o.cls || ''}"><label>${label}</label><textarea class="ta ${o.code ? 'code' : ''}" data-p="${p}" ${o.t ? `data-t="${o.t}"` : ''} ${o.rows ? `rows="${o.rows}"` : ''}>${esc(fmtVal(v, o.t))}</textarea>${o.h ? `<div class="h">${o.h}</div>` : ''}</div>`;
-  const fSel = (p, label, v, opts, o = {}) => `<div class="fld ${o.cls || ''}"><label>${label}</label><select class="sel" data-p="${p}">${opts.map((x) => { const [val, t] = Array.isArray(x) ? x : [x, x]; return `<option value="${esc(val)}"${val === v ? ' selected' : ''}>${esc(t)}</option>`; }).join('')}</select></div>`;
-  const fSw = (p, label, v) => `<label class="sw"><input type="checkbox" data-p="${p}"${v ? ' checked' : ''}> ${label}</label>`;
-  const fImg = (p, label, v) => `<div class="fld"><span class="l">${label}</span><div class="img-pick">${v ? `<img src="${esc(src(v))}" alt="">` : '<span class="ph"></span>'}<div class="grow"><input class="in" data-p="${p}" dir="ltr" value="${esc(v || '')}" placeholder="assets/uploads/… أو رابط"><div class="row"><button type="button" class="btn sm" data-upload="${p}">${icon('image', 'i')} رفع صورة</button><button type="button" class="btn sm" data-pickmedia="${p}">من المكتبة</button></div></div></div></div>`;
+  const fld = (p, label, v, o = {}) => `<label class="f ${o.cls || ''}"><span>${label}</span><input class="in" data-p="${p}" ${o.t ? `data-t="${o.t}"` : ''} type="${o.type || 'text'}" value="${esc(fmtVal(v, o.t))}" ${o.ph ? `placeholder="${esc(o.ph)}"` : ''} ${o.list ? `list="${o.list}"` : ''} ${o.dir ? `dir="${o.dir}"` : ''}>${o.h ? `<span class="h">${o.h}</span>` : ''}</label>`;
+  const area = (p, label, v, o = {}) => `<label class="f ${o.cls || ''}"><span>${label}${o.count ? ` <small data-count="${p}" data-max="${o.count}">${(v || '').length} / ${o.count}</small>` : ''}</span><textarea class="in ${o.code ? 'code' : ''}" data-p="${p}" ${o.t ? `data-t="${o.t}"` : ''} rows="${o.rows || 3}">${esc(fmtVal(v, o.t))}</textarea>${o.h ? `<span class="h">${o.h}</span>` : ''}</label>`;
+  const sel = (p, label, v, opts, o = {}) => `<label class="f ${o.cls || ''}"><span>${label}</span><select class="in" data-p="${p}">${opts.map((x) => { const [val, t] = Array.isArray(x) ? x : [x, x]; return `<option value="${esc(val)}"${val === v ? ' selected' : ''}>${esc(t)}</option>`; }).join('')}</select></label>`;
+  const sw = (p, on, label) => `<button type="button" class="switch" role="switch" aria-checked="${!!on}" aria-label="${esc(label)}" data-sw="${p}"></button>`;
+  const imgPick = (p, label, v) => `<div class="f"><span>${label}</span><div class="trans">${v ? `<img src="${esc(src(v))}" alt="" style="inline-size:74px;block-size:52px;object-fit:cover;border-radius:7px">` : svg('image', 'width="22" height="22"')}<input class="in" data-p="${p}" dir="ltr" value="${esc(v || '')}" placeholder="assets/uploads/…" style="flex:1;min-inline-size:0"><button type="button" class="btn sm" data-upload="${p}">${svg('upload')}رفع</button><button type="button" class="btn sm" data-pick="${p}">المكتبة</button></div></div>`;
+  const updCounts = (base) => $$('[data-count]').forEach((s) => { const v = getPath(base, s.dataset.count) || ''; const mx = +s.dataset.max; s.textContent = `${v.length} / ${mx}`; s.classList.toggle('over', v.length > mx); });
 
-  /* ---------------- رفع الصور ---------------- */
+  /* ---------- رفع الصور ---------- */
   function gh() { try { return JSON.parse(IB.safeGet(GH_KEY) || sessionStorage.getItem(GH_KEY) || 'null'); } catch (e) { return null; } }
   function resize(file, max = 1600) {
     return new Promise((res, rej) => {
       const img = new Image(); const u = URL.createObjectURL(file);
-      img.onload = () => {
-        const k = Math.min(1, max / Math.max(img.width, img.height));
-        const c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
-        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(u);
-        res(c.toDataURL('image/jpeg', 0.82));
-      };
+      img.onload = () => { const k = Math.min(1, max / Math.max(img.width, img.height)); const c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k); c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(u); res(c.toDataURL('image/jpeg', 0.82)); };
       img.onerror = rej; img.src = u;
     });
   }
   async function uploadImage(file) {
-    const dataUrl = await resize(file);
-    const cfg = gh();
-    if (!cfg || !cfg.token) { toast('حُفظت الصورة داخل المسودة. اربط GitHub لرفعها كملف مستقل.'); return dataUrl; }
+    const dataUrl = await resize(file); const cfg = gh();
+    if (!cfg || !cfg.token) { toast('حُفظت الصورة داخل المسودة. اربط GitHub من «النشر» لرفعها كملف.'); return dataUrl; }
     const name = file.name.replace(/\.[^.]+$/, '').replace(/[^\w؀-ۿ-]+/g, '-').slice(0, 40) || 'image';
     const path = `assets/uploads/dashboard/${new Date().toISOString().slice(0, 7)}/${Date.now().toString(36)}-${name}.jpg`;
     await ghPut(cfg, path, dataUrl.split(',')[1], 'رفع صورة من لوحة التحكم: ' + name);
-    toast('تم رفع الصورة إلى المستودع'); return path;
+    log('رفع صورة ' + name); return path;
   }
-  function pickFile() {
-    return new Promise((res) => { const i = document.createElement('input'); i.type = 'file'; i.accept = 'image/*'; i.multiple = true; i.onchange = () => res([...i.files]); i.click(); });
-  }
-  // أزرار الرفع/الاختيار العامة داخل أي نموذج مربوط
+  const pickFile = (multi) => new Promise((res) => { const i = document.createElement('input'); i.type = 'file'; i.accept = 'image/*'; i.multiple = !!multi; i.onchange = () => res([...i.files]); i.click(); });
   function wireImages(root, base, rerender) {
     root.addEventListener('click', async (e) => {
-      const up = e.target.closest('[data-upload]'); const pk = e.target.closest('[data-pickmedia]');
-      if (up) { const [f] = await pickFile(); if (!f) return; try { setPath(base, up.dataset.upload, await uploadImage(f)); save(); rerender(); } catch (err) { toast('فشل رفع الصورة: ' + err.message, true); } }
-      if (pk) { const v = await mediaPicker(); if (v) { setPath(base, pk.dataset.pickmedia, v); save(); rerender(); } }
+      const up = e.target.closest('[data-upload]'); const pk = e.target.closest('[data-pick]');
+      if (up) { const [f] = await pickFile(); if (!f) return; try { setPath(base, up.dataset.upload, await uploadImage(f)); save('حُدّثت الصورة'); rerender(); } catch (err) { toast('فشل رفع الصورة: ' + err.message, null, true); } }
+      if (pk) { const v = await mediaPicker(); if (v) { setPath(base, pk.dataset.pick, v); save('حُدّثت الصورة'); rerender(); } }
     });
   }
-
-  /* ---------------- تجميع الإحصاءات ---------------- */
-  const tally = (arr, f) => arr.reduce((m, x) => { [].concat(f(x) || []).forEach((k) => { if (k) m[k] = (m[k] || 0) + 1; }); return m; }, {});
-  function hbars(m, cls, limit) {
-    const ks = Object.keys(m).sort((a, b) => m[b] - m[a]).slice(0, limit || 99); const max = Math.max(1, ...ks.map((k) => m[k]));
-    return ks.length ? `<div class="hbars">${ks.map((k) => `<div class="hbar ${cls || ''}"><span class="t" title="${esc(k)}">${esc(k)}</span><span class="track"><span class="fill" style="width:${(m[k] / max) * 100}%"></span></span><span class="n">${m[k]}</span></div>`).join('')}</div>` : '<div class="empty">لا توجد بيانات</div>';
+  function wireSwitches(root, base) {
+    root.addEventListener('click', (e) => { const s = e.target.closest('[data-sw]'); if (!s) return; const on = s.getAttribute('aria-checked') !== 'true'; s.setAttribute('aria-checked', on); setPath(base, s.dataset.sw, on); save(on ? 'فُعّل الإعداد' : 'أُوقف الإعداد'); });
   }
 
-  /* ====================== نظرة عامة ====================== */
-  function overview() {
-    const I = D.initiatives; const live = I.filter((i) => i.status === 'published');
-    const photos = I.reduce((n, i) => n + (i.gallery || []).length, 0);
-    const team = I.reduce((n, i) => n + (i.team || []).length, 0);
+  /* ---------- مكونات ---------- */
+  function hero(key, actions = '', stats = []) {
+    const s = S[key];
+    return `<section class="hero" style="--gc:${s.c}"><div class="hero-top"><span class="tile">${svg(s.i)}</span><div><h1>${s.t}</h1><p>${s.d}</p></div><div class="actions">${actions}</div></div>
+      ${stats.length ? `<div class="hstats">${stats.map(([v, l]) => `<div class="hstat"><strong>${v}</strong><span>${l}</span></div>`).join('')}</div>` : ''}</section>`;
+  }
+  const tally = (arr, f) => arr.reduce((m, x) => { [].concat(f(x) || []).forEach((k) => { if (k) m[k] = (m[k] || 0) + 1; }); return m; }, {});
+  const sortKeys = (m) => Object.keys(m).sort((a, b) => m[b] - m[a]);
+  function hbars(m, cls) {
+    const ks = sortKeys(m); const max = Math.max(1, ...ks.map((k) => m[k]));
+    return ks.length ? `<div class="hbars">${ks.map((k) => `<div class="hbar ${cls || ''}"><span title="${esc(k)}">${esc(k)}</span><span class="track"><i style="inline-size:${(m[k] / max) * 100}%"></i></span><b>${m[k]}</b></div>`).join('')}</div>` : '<div class="empty">لا توجد بيانات</div>';
+  }
+  const ISSUES = [
+    ['nogov', 'بلا محافظة', (i) => !i.governorate],
+    ['nocover', 'بلا صورة غلاف', (i) => !i.cover],
+    ['nogallery', 'بلا معرض صور', (i) => !(i.gallery || []).length],
+    ['noteam', 'بلا أعضاء فريق', (i) => !(i.team || []).length],
+    ['nobenef', 'بلا عدد مستفيدين', (i) => !i.beneficiaries],
+    ['shortsum', 'ملخص أقصر من 80 حرفًا', (i) => (i.summary || '').length < 80],
+  ];
+  function syncDerived(i) {
+    const g = (i.blocks || []).find((b) => b.kind === 'gallery'); i.gallery = g ? g.images.slice() : [];
+    const t = (i.blocks || []).find((b) => b.kind === 'team'); i.team = t ? clone(t.members) : [];
+  }
+  function ago(iso) {
+    const s = (Date.now() - new Date(iso)) / 1000;
+    if (s < 60) return 'الآن'; if (s < 3600) return `منذ ${Math.round(s / 60)} دقيقة`; if (s < 86400) return `منذ ${Math.round(s / 3600)} ساعة`;
+    return new Date(iso).toLocaleDateString('ar-u-nu-latn', { day: 'numeric', month: 'short' });
+  }
+
+  /* ====================== الرئيسية ====================== */
+  function vHome() {
+    const I_ = D.initiatives, live = I_.filter((i) => i.status === 'published');
+    const h = new Date().getHours();
+    const today = new Date().toLocaleDateString('ar-u-nu-latn', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    const newSubs = SUBS.filter((s) => s.status === 'new');
+    const drafts = I_.filter((i) => i.status === 'draft');
+    const noGal = I_.filter(ISSUES[2][2]);
+    const todo = [];
+    if (newSubs.length) todo.push(['var(--blue)', 'inbox', `${newSubs.length} طلب مبادرة جديد`, `آخرها «${newSubs[0].title}»`, '#submissions', 'افرز']);
+    if (drafts.length) todo.push(['var(--orange)', 'edit', `${drafts.length} مبادرة مسودة`, `«${drafts[0].title || 'بلا عنوان'}» لم تُنشر بعد`, '#initiatives/draft', 'راجِع']);
+    if (dirty()) todo.push(['var(--yellow)', 'send', 'تغييرات غير منشورة', 'المسودة تختلف عن الموقع المنشور', '#publish', 'انشر']);
+    if (noGal.length) todo.push(['var(--teal)', 'image', `${noGal.length} مبادرات بلا معرض صور`, 'الصور تزيد ثقة الزوار والشركاء', '#initiatives/nogallery', 'أكمِل']);
+    const nb = I_.filter(ISSUES[4][2]).length; if (nb) todo.push(['var(--violet)', 'users', `${nb} مبادرة بلا عدد مستفيدين`, 'رقم واحد لكل مبادرة يكفي لبناء مؤشر الأثر', '#initiatives/nobenef', 'أضِف']);
+
+    const months = {}; const add = (d, k) => { const m = d.slice(0, 7); months[m] = months[m] || [0, 0]; months[m][k]++; };
+    live.forEach((i) => add(i.date, 0)); D.posts.filter((p) => p.status === 'published').forEach((p) => add(p.date, 1));
+    const keys = Object.keys(months).sort(); const series = [];
+    if (keys.length) for (let d = new Date(keys[0] + '-15'); d <= new Date(keys[keys.length - 1] + '-15'); d.setMonth(d.getMonth() + 1)) { const k = d.toISOString().slice(0, 7); series.push([k, ...(months[k] || [0, 0])]); }
+    const last = series.slice(-12);
+    const max = Math.max(4, ...last.map((x) => Math.max(x[1], x[2]))); const step = Math.ceil(max / 4);
+    const W = 640, H = 250, pT = 24, pB = 38, pL = 18, pR = 34, top = step * 4;
+    const pw = W - pL - pR, ph = H - pT - pB, slot = pw / Math.max(1, last.length), bw = Math.min(18, slot / 3);
+    const y = (v) => pT + ph - (v / top) * ph; const xs = (i) => W - pR - slot * (i + 0.5);
+    const grid = [0, 1, 2, 3, 4].map((k) => `<line x1="${pL}" x2="${W - pR}" y1="${y(k * step)}" y2="${y(k * step)}" class="gl${k ? '' : ' base'}"/><text x="${W - pR + 8}" y="${y(k * step) + 4}" class="ax">${k * step}</text>`).join('');
+    const bar = (v, x, c, i, lbl, m) => `<rect x="${x}" y="${v ? y(v) : y(0) - 2}" width="${bw}" height="${v ? y(0) - y(v) : 2}" rx="4" fill="${c}" style="animation-delay:${i * 50}ms"><title>${m}: ${v} ${lbl}</title></rect>${v ? `<text x="${x + bw / 2}" y="${y(v) - 6}" class="val" text-anchor="middle">${v}</text>` : ''}`;
+    const mName = (k) => new Date(k + '-15').toLocaleDateString('ar-u-nu-latn', { month: 'short' });
+    const bars = last.map(([k, a, b], i) => { const cx = xs(i); const m = IB.fmtMonth(k + '-15'); const lbl = (i === 0 || k.endsWith('-01')) ? `${mName(k)} ${k.slice(2, 4)}` : mName(k); return bar(a, cx + 2, 'var(--orange)', i, 'مبادرة', m) + bar(b, cx - bw - 2, 'var(--blue)', i, 'خبر', m) + (last.length > 8 && i % 2 && !k.endsWith('-01') ? '' : `<text x="${cx}" y="${H - 14}" class="ax mon" text-anchor="middle">${lbl}</text>`); }).join('');
+    const tot = last.reduce((t, x) => [t[0] + x[1], t[1] + x[2]], [0, 0]);
+    const projs = tally(live, (i) => i.project); const pk = sortKeys(projs); const ptot = pk.reduce((s, k) => s + projs[k], 0) || 1;
+    const photos = I_.reduce((n, i) => n + (i.gallery || []).length, 0), team = I_.reduce((n, i) => n + (i.team || []).length, 0);
     const govs = new Set(live.map((i) => i.governorate).filter(Boolean));
-    const newSubs = SUBS.filter((s) => s.status === 'new').length;
-    // آخر 12 شهرًا تحتوي بيانات
-    const months = tally(live, (i) => i.date.slice(0, 7));
-    const mk = Object.keys(months).sort();
-    const first = mk[0] ? new Date(mk[0] + '-01') : new Date();
-    const last = mk.length ? new Date(mk[mk.length - 1] + '-01') : new Date();
-    const series = []; for (let d = new Date(first); d <= last; d.setMonth(d.getMonth() + 1)) { const k = d.toISOString().slice(0, 7); series.push([k, months[k] || 0]); }
-    const maxM = Math.max(1, ...series.map((x) => x[1]));
-    const issues = [
-      ['بدون محافظة', I.filter((i) => !i.governorate)],
-      ['بدون صورة غلاف', I.filter((i) => !i.cover)],
-      ['بدون معرض صور', I.filter((i) => !(i.gallery || []).length)],
-      ['بدون أعضاء فريق', I.filter((i) => !(i.team || []).length)],
-      ['بدون عدد مستفيدين', I.filter((i) => !i.beneficiaries)],
-      ['ملخص قصير جدًا', I.filter((i) => (i.summary || '').length < 40)],
-    ];
-    view.innerHTML = `
-    <div class="kpis">
-      <div class="kpi hl"><div class="lbl">${icon('spark', 'i')} مبادرات منشورة</div><div class="v">${live.length}</div><div class="d">من أصل ${I.length} في المكتبة</div></div>
-      <div class="kpi"><div class="lbl">${icon('pin', 'i')} المحافظات</div><div class="v">${govs.size}</div><div class="d">${[...govs].join('، ')}</div></div>
-      <div class="kpi"><div class="lbl">${icon('image', 'i')} صور موثّقة</div><div class="v">${num(photos)}</div><div class="d">في معارض المبادرات</div></div>
-      <div class="kpi"><div class="lbl">${icon('team', 'i')} أعضاء فرق</div><div class="v">${num(team)}</div><div class="d">مُبادِر/ة موثّق</div></div>
-      <div class="kpi"><div class="lbl">${icon('megaphone', 'i')} أخبار وإعلانات</div><div class="v">${D.posts.length}</div><div class="d">${D.posts.filter((p) => p.kind === 'call').length} دعوات مفتوحة</div></div>
-      <div class="kpi"><div class="lbl">${icon('bulb', 'i')} طلبات جديدة</div><div class="v">${newSubs}</div><div class="d">${SUBS.length} طلب على هذا الجهاز</div></div>
+    return `
+    <header class="greet"><div><h1>${h < 12 ? 'صباح الخير' : 'مساء الخير'}</h1><p>${today} · ${todo.length ? `${todo.length} أمور تنتظرك` : 'لا شيء ينتظرك الآن'}</p></div>
+      <div class="actions"><a class="btn" href="../index.html" target="_blank" rel="noopener">${svg('ext')}فتح الموقع</a><a class="btn primary" href="#initiative/new">${svg('plus')}مبادرة جديدة</a></div></header>
+    <div class="dash">
+      <section class="card"><div class="card-h"><h3>ابدأ من هنا</h3><span class="end"><span class="tag">${todo.length} مهام</span></span></div>
+        ${todo.length ? `<ol class="todo">${todo.map(([c, i, t, s, href, a]) => `<li style="--c:${c}"><span class="dot">${svg(i)}</span><div><p>${esc(t)}</p><small>${esc(s)}</small></div><a class="btn sm" href="${href}">${a}</a></li>`).join('')}</ol>` : '<div class="empty">كل شيء مكتمل ومنشور ✓</div>'}</section>
+      <section class="card"><div class="card-h"><h3>آخر التعديلات</h3><a class="end" href="#log">السجل الكامل</a></div>
+        ${LOG.length ? `<ul class="recent">${LOG.slice(0, 5).map((l) => `<li><span class="avatar">ب</span><span>${esc(l.t)}</span><time>${ago(l.at)}</time></li>`).join('')}</ul>` : '<div class="empty">لم تُجرَ تعديلات على هذا الجهاز بعد.</div>'}</section>
     </div>
-    <div class="cols side-r">
-      <div>
-        <div class="panel"><div class="panel-head"><div><h2>المبادرات المنشورة شهريًا</h2><div class="sub">حسب تاريخ النشر في المكتبة</div></div><a class="btn sm" href="#initiatives">إدارة المبادرات</a></div>
-          <div class="cols-chart">${series.map(([k, v]) => `<div class="c" title="${k}: ${v}"><span class="n">${v || ''}</span><span class="bar" style="height:${(v / maxM) * 100}%"></span></div>`).join('')}</div>
-          <div class="cols-x">${series.map(([k]) => `<span>${IB.fmtMonth(k + '-01')}</span>`).join('')}</div>
-        </div>
-        <div class="cols c2" style="margin-top:18px">
-          <div class="panel"><h2>حسب المحافظة</h2><div class="sub">مكان التنفيذ</div>${hbars(tally(live, (i) => i.governorate))}</div>
-          <div class="panel"><h2>حسب المسار / المشروع</h2><div class="sub">الإطار الذي نُفذت ضمنه</div>${hbars(tally(live, (i) => i.project), 'blue')}</div>
-          <div class="panel"><h2>حسب المجال</h2><div class="sub">قد تنتمي المبادرة لأكثر من مجال</div>${hbars(tally(live, (i) => i.themes))}</div>
-          <div class="panel"><h2>حسب الفئة المستهدفة</h2><div class="sub">قد تستهدف المبادرة أكثر من فئة</div>${hbars(tally(live, (i) => i.audienceGroups), 'blue')}</div>
-        </div>
-      </div>
-      <div>
-        <div class="panel"><h2>جودة البيانات</h2><div class="sub">عناصر تحتاج استكمالًا لتظهر بأفضل شكل</div>
-          <div class="checks">${issues.map(([t, arr]) => `<a href="#initiatives?issue=${encodeURIComponent(t)}">${arr.length ? icon('target', 'i') : icon('check', 'i')} ${t}<span class="c tag ${arr.length ? 'draft' : 'pub'}">${arr.length}</span></a>`).join('')}</div></div>
-        <div class="panel"><div class="panel-head"><div><h2>أحدث الطلبات</h2><div class="sub">من نموذج «قدّم فكرتك»</div></div><a class="btn sm" href="#submissions">الكل</a></div>
-          ${SUBS.length ? `<div class="checks">${SUBS.slice(0, 5).map((s) => `<a href="#submissions?open=${esc(s.id)}">${esc(s.title)}<span class="c tag ${SUB_STATUS[s.status][1]}">${SUB_STATUS[s.status][0]}</span></a>`).join('')}</div>` : '<div class="empty small">لا توجد طلبات بعد. اربط رابط استقبال النماذج من «محتوى الموقع» أو استورد ملف طلبات.</div>'}</div>
-        <div class="panel"><h2>إجراءات سريعة</h2><div class="sub">&nbsp;</div><div class="row">
-          <a class="btn pri" href="#initiative/new">${icon('spark', 'i')} مبادرة جديدة</a><a class="btn" href="#post/new">${icon('megaphone', 'i')} خبر جديد</a><a class="btn blue" href="#publish">${icon('send', 'i')} النشر</a></div></div>
-      </div>
+    <div class="kpis">${[
+      ['spark', 'مبادرات منشورة', live.length, `في ${govs.size} محافظات`, 'var(--orange)', '#initiatives'],
+      ['image', 'صور موثّقة', fmt(photos), 'في معارض المبادرات', 'var(--teal)', '#media'],
+      ['users', 'مُبادرون موثّقون', fmt(team), 'أعضاء فرق المبادرات', 'var(--violet)', '#initiatives'],
+      ['inbox', 'طلبات جديدة', newSubs.length, `${SUBS.length} طلب على هذا الجهاز`, 'var(--blue)', '#submissions'],
+    ].map(([i, l, v, d, c, href]) => `<a class="kpi2" href="${href}" style="--c:${c}"><span class="ic">${svg(i)}</span><span class="lbl">${l}</span><strong>${v}</strong><span class="delta">${d}</span></a>`).join('')}</div>
+    <div class="dash">
+      <section class="card"><div class="card-h"><div><h3>المنشور شهريًا</h3><small class="muted">المبادرات والأخبار المنشورة حسب الشهر</small></div>
+        <span class="end legend"><span><i style="background:var(--orange)"></i>مبادرات · ${tot[0]}</span><span><i style="background:var(--blue)"></i>أخبار · ${tot[1]}</span></span></div>
+        <div class="card-b"><svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="المبادرات والأخبار المنشورة شهريًا">${grid}${bars}</svg></div></section>
+      <section class="card"><div class="card-h"><div><h3>المبادرات حسب المسار</h3><small class="muted">${live.length} مبادرة منشورة</small></div></div>
+        <div class="card-b"><div class="stackbar" role="img" aria-label="توزيع المبادرات على المسارات">${pk.map((k, i) => `<i style="flex:${projs[k]};background:${PALETTE[i % PALETTE.length]}" title="${esc(k)}: ${projs[k]}"></i>`).join('')}</div>
+        <ul class="prog-list">${pk.map((k, i) => `<li><i style="background:${PALETTE[i % PALETTE.length]}"></i><span>${esc(k)}</span><b>${projs[k]}</b><small>${Math.round((projs[k] / ptot) * 100)}%</small></li>`).join('')}</ul></div></section>
+    </div>
+    <div class="grid g3">
+      <section class="card"><div class="card-h"><h3>حسب المحافظة</h3></div><div class="card-b">${hbars(tally(live, (i) => i.governorate))}</div></section>
+      <section class="card"><div class="card-h"><h3>حسب المجال</h3></div><div class="card-b">${hbars(tally(live, (i) => i.themes), 'b')}</div></section>
+      <section class="card"><div class="card-h"><h3>حسب الفئة المستهدفة</h3></div><div class="card-b">${hbars(tally(live, (i) => i.audienceGroups))}</div></section>
     </div>`;
   }
 
   /* ====================== المبادرات ====================== */
-  function initiatives(params) {
-    const issue = params.get('issue');
-    const st = { q: '', status: '', gov: '', project: '' };
-    const issueF = {
-      'بدون محافظة': (i) => !i.governorate, 'بدون صورة غلاف': (i) => !i.cover, 'بدون معرض صور': (i) => !(i.gallery || []).length,
-      'بدون أعضاء فريق': (i) => !(i.team || []).length, 'بدون عدد مستفيدين': (i) => !i.beneficiaries, 'ملخص قصير جدًا': (i) => (i.summary || '').length < 40,
-    }[issue];
+  function vInitiatives(sub) {
+    const issue = ISSUES.find((x) => x[0] === sub);
+    const st = { tab: ST[sub] ? sub : '', q: '', gov: '', proj: '', sort: 'new' };
+    const counts = { '': D.initiatives.length }; Object.keys(ST).forEach((k) => { counts[k] = D.initiatives.filter((i) => i.status === k).length; });
     const projects = [...new Set(D.initiatives.map((i) => i.project).filter(Boolean))];
-    view.innerHTML = `
-    ${issue ? `<div class="note warn" style="margin-bottom:14px">تعرض المبادرات: <b>${esc(issue)}</b> — <a href="#initiatives">إلغاء</a></div>` : ''}
-    <div class="toolbar">
-      <input class="in grow" id="q" type="search" placeholder="ابحث بالعنوان أو المكان…">
-      <select class="sel" id="fs" style="width:auto"><option value="">كل الحالات</option>${Object.entries(STATUS).map(([k, v]) => `<option value="${k}">${v[0]}</option>`).join('')}</select>
-      <select class="sel" id="fg" style="width:auto"><option value="">كل المحافظات</option>${GOVS.map((g) => `<option>${g}</option>`).join('')}</select>
-      <select class="sel" id="fp" style="width:auto"><option value="">كل المسارات</option>${projects.map((g) => `<option>${esc(g)}</option>`).join('')}</select>
-      <a class="btn pri" href="#initiative/new">${icon('spark', 'i')} مبادرة جديدة</a>
-    </div>
-    <div class="table-wrap"><table><thead><tr><th></th><th>المبادرة</th><th>المحافظة</th><th>المسار</th><th>التاريخ</th><th>محتوى</th><th>الحالة</th><th>مميزة</th><th></th></tr></thead><tbody id="rows"></tbody></table></div>
-    <p class="muted small" id="cnt"></p>`;
-    const render = () => {
-      const q = st.q.toLowerCase();
-      const rows = D.initiatives.filter((i) => (!issueF || issueF(i)) && (!q || (i.title + i.location).toLowerCase().includes(q)) && (!st.status || i.status === st.status) && (!st.gov || i.governorate === st.gov) && (!st.project || i.project === st.project))
-        .sort((a, b) => b.date.localeCompare(a.date));
-      $('#rows').innerHTML = rows.map((i) => `<tr>
-        <td>${i.cover ? `<img class="thumb" src="${esc(src(i.cover))}" alt="" loading="lazy">` : '<span class="thumb ph"></span>'}</td>
-        <td><a class="ttl" href="#initiative/${i.id}">${esc(i.title)}</a><span class="muted small">${esc(i.location)}</span></td>
-        <td>${esc(i.governorate || '—')}</td><td class="small">${esc(i.project || '')}</td><td class="small">${fmtDate(i.date)}</td>
-        <td class="small muted">${(i.blocks || []).length} كتلة · ${(i.gallery || []).length} صورة · ${(i.team || []).length} عضو</td>
-        <td><span class="tag ${STATUS[i.status][1]}">${STATUS[i.status][0]}</span></td>
-        <td><button class="star ${i.featured ? 'on' : ''}" data-star="${i.id}" aria-label="تمييز">${icon('spark', 'i')}</button></td>
-        <td><div class="row" style="flex-wrap:nowrap"><a class="btn sm" href="#initiative/${i.id}">تحرير</a><button class="btn sm icon" data-dup="${i.id}" title="نسخ">${icon('box', 'i')}</button><button class="btn sm icon danger" data-del="${i.id}" title="حذف">${icon('x', 'i')}</button></div></td></tr>`).join('') || `<tr><td colspan="9" class="empty">لا توجد نتائج</td></tr>`;
-      $('#cnt').textContent = `${rows.length} مبادرة`;
+    const html = hero('initiatives', `<a class="btn primary" href="#initiative/new">${svg('plus')}مبادرة جديدة</a>`,
+      [[counts.published, 'منشورة'], [counts.draft, 'مسودات'], ...ISSUES.slice(2, 5).map(([, l, f]) => [D.initiatives.filter(f).length, l])]) + `
+    ${issue ? `<div class="note warn">${svg('alert', 'width="16" height="16"')}<div>تعرض المبادرات <b>${issue[1]}</b> — <a href="#initiatives">عرض الكل</a></div></div>` : ''}
+    <section class="card" style="--gc:var(--orange)">
+      <div class="tabs" role="tablist">${[['', 'الكل'], ['published', 'منشورة'], ['draft', 'مسودات'], ['archived', 'مؤرشفة']].map(([k, l]) => `<button role="tab" data-tab="${k}" aria-selected="${k === st.tab}">${l}<span>${counts[k]}</span></button>`).join('')}</div>
+      <div class="toolbar">
+        <label class="field grow">${svg('search')}<span class="sr">بحث</span><input id="q" placeholder="ابحث بالعنوان أو المكان…"></label>
+        <label class="field"><span class="sr">المحافظة</span><select id="fg"><option value="">كل المحافظات</option>${GOVS.map((g) => `<option>${g}</option>`).join('')}</select></label>
+        <label class="field"><span class="sr">المسار</span><select id="fp"><option value="">كل المسارات</option>${projects.map((p) => `<option>${esc(p)}</option>`).join('')}</select></label>
+        <label class="field"><span class="sr">الترتيب</span><select id="fs"><option value="new">الأحدث أولًا</option><option value="old">الأقدم أولًا</option><option value="az">الأبجدية</option><option value="score">الأقل اكتمالًا</option></select></label>
+      </div>
+      <div class="bulk" id="bulk"><b id="bulkN"></b><span style="opacity:.6">·</span><button class="btn sm" data-bulk="published">نشر</button><button class="btn sm" data-bulk="draft">تحويل لمسودة</button><button class="btn sm" data-bulk="archived">أرشفة</button><button class="btn sm" data-bulk="feature">تمييز</button><button class="btn sm" data-bulk="delete">حذف</button></div>
+      <div style="overflow-x:auto"><table class="table"><thead><tr><th style="inline-size:36px"><input type="checkbox" id="all" aria-label="تحديد الكل"></th><th>المبادرة</th><th>المحافظة</th><th>المسار</th><th>الاكتمال</th><th>الحالة</th><th>التاريخ</th><th>مميزة</th><th></th></tr></thead><tbody id="rows"></tbody></table></div>
+    </section>`;
+    const after = () => {
+      const score = (i) => Math.round((ISSUES.filter(([, , f]) => !f(i)).length / ISSUES.length) * 100);
+      const bulkUpd = () => { const n = $$('[data-row]:checked').length; $('#bulk').classList.toggle('on', n > 0); $('#bulkN').textContent = `تحديد ${n}`; };
+      const render = () => {
+        const q = st.q.toLowerCase();
+        const rows = D.initiatives.filter((i) => (!issue || issue[2](i)) && (!st.tab || i.status === st.tab) && (!q || (i.title + ' ' + i.location).toLowerCase().includes(q)) && (!st.gov || i.governorate === st.gov) && (!st.proj || i.project === st.proj))
+          .sort({ new: (a, b) => b.date.localeCompare(a.date), old: (a, b) => a.date.localeCompare(b.date), az: (a, b) => a.title.localeCompare(b.title, 'ar'), score: (a, b) => score(a) - score(b) }[st.sort]);
+        $('#rows').innerHTML = rows.map((i) => { const sc = score(i); return `<tr data-id="${i.id}">
+          <td><input type="checkbox" data-row aria-label="تحديد"></td>
+          <td><div class="it">${i.cover ? `<img class="thumb" src="${esc(src(i.cover))}" alt="" loading="lazy">` : `<span class="thumb">${svg('image', 'width="20" height="20"')}</span>`}<div><b><a href="#initiative/${i.id}">${esc(i.title || 'مبادرة بلا عنوان')}</a></b><small>${esc(i.location || '—')}</small><span style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">${(i.themes || []).map((t) => `<span class="tag">${esc(t)}</span>`).join('')}</span></div></div></td>
+          <td>${esc(i.governorate || '—')}</td><td><span class="tag">${esc(i.project || '—')}</span></td>
+          <td><span class="ring" style="--p:${sc};inline-size:40px;block-size:40px;font-size:10.5px" title="${sc}% مكتملة"><span style="inline-size:31px;block-size:31px">${sc}%</span></span></td>
+          <td><span class="pill ${ST[i.status][1]}">${ST[i.status][0]}</span></td>
+          <td class="muted" style="white-space:nowrap">${fmtDate(i.date)}</td>
+          <td><button class="star ${i.featured ? 'on' : ''}" data-star aria-label="تمييز" aria-pressed="${!!i.featured}">★</button></td>
+          <td><div class="row-act"><a class="icon-btn sm" href="#initiative/${i.id}" aria-label="تحرير">${svg('edit')}</a><button class="icon-btn sm" data-prev aria-label="معاينة">${svg('eye')}</button><button class="icon-btn sm" data-dup aria-label="نسخ">${svg('copy')}</button><button class="icon-btn sm danger" data-del aria-label="حذف">${svg('trash')}</button></div></td></tr>`; }).join('') || `<tr><td colspan="9" class="empty">لا توجد مبادرات مطابقة</td></tr>`;
+        $('#all').checked = false; bulkUpd();
+      };
+      const byRow = (el) => D.initiatives.find((x) => String(x.id) === el.closest('tr').dataset.id);
+      $('#q').oninput = (e) => { st.q = e.target.value; render(); };
+      $('#fg').onchange = (e) => { st.gov = e.target.value; render(); };
+      $('#fp').onchange = (e) => { st.proj = e.target.value; render(); };
+      $('#fs').onchange = (e) => { st.sort = e.target.value; render(); };
+      $$('[data-tab]').forEach((b) => { b.onclick = () => { st.tab = b.dataset.tab; $$('[data-tab]').forEach((x) => x.setAttribute('aria-selected', x === b)); render(); }; });
+      $('#all').onchange = (e) => { $$('[data-row]').forEach((x) => { x.checked = e.target.checked; }); bulkUpd(); };
+      $('#rows').addEventListener('change', (e) => { if (e.target.matches('[data-row]')) bulkUpd(); });
+      $('#rows').addEventListener('click', (e) => {
+        const t = e.target.closest('button'); if (!t) return; const i = byRow(t);
+        if (t.matches('[data-star]')) { i.featured = !i.featured; save(i.featured ? 'مُيّزت المبادرة' : 'أُلغي التمييز'); log(`${i.featured ? 'ميّز' : 'ألغى تمييز'} «${i.title}»`); render(); }
+        if (t.matches('[data-prev]')) preview('initiative.html?id=' + i.id);
+        if (t.matches('[data-dup]')) { const c = clone(i); c.id = uid(); c.title += ' (نسخة)'; c.status = 'draft'; c.featured = false; D.initiatives.unshift(c); save(); log(`نسخ «${i.title}»`); location.hash = '#initiative/' + c.id; }
+        if (t.matches('[data-del]')) { const k = D.initiatives.indexOf(i); D.initiatives.splice(k, 1); save(); log(`حذف «${i.title}»`); render(); toast('حُذفت المبادرة من المسودة', () => { D.initiatives.splice(k, 0, i); save(); render(); }); }
+      });
+      $('#bulk').onclick = (e) => {
+        const b = e.target.closest('[data-bulk]'); if (!b) return;
+        const ids = $$('[data-row]:checked').map((x) => x.closest('tr').dataset.id); const chosen = D.initiatives.filter((i) => ids.includes(String(i.id)));
+        const before = clone(D.initiatives); const a = b.dataset.bulk;
+        if (a === 'delete') D.initiatives = D.initiatives.filter((i) => !chosen.includes(i)); else if (a === 'feature') chosen.forEach((i) => { i.featured = true; }); else chosen.forEach((i) => { i.status = a; });
+        save(); log(`إجراء جماعي (${b.textContent}) على ${chosen.length} مبادرة`); render();
+        toast(`طُبّق «${b.textContent}» على ${chosen.length} مبادرة`, () => { D.initiatives = before; save(); render(); });
+      };
+      render();
     };
-    $('#q').oninput = (e) => { st.q = e.target.value; render(); };
-    $('#fs').onchange = (e) => { st.status = e.target.value; render(); };
-    $('#fg').onchange = (e) => { st.gov = e.target.value; render(); };
-    $('#fp').onchange = (e) => { st.project = e.target.value; render(); };
-    $('#rows').addEventListener('click', (e) => {
-      const s = e.target.closest('[data-star]'); const d = e.target.closest('[data-del]'); const c = e.target.closest('[data-dup]');
-      if (s) { const i = D.initiatives.find((x) => x.id == s.dataset.star); i.featured = !i.featured; save(); render(); }
-      if (d && confirm('حذف هذه المبادرة نهائيًا من المسودة؟')) { D.initiatives = D.initiatives.filter((x) => x.id != d.dataset.del); save(); render(); }
-      if (c) { const i = clone(D.initiatives.find((x) => x.id == c.dataset.dup)); i.id = uid(); i.title += ' (نسخة)'; i.status = 'draft'; i.featured = false; D.initiatives.unshift(i); save(); location.hash = '#initiative/' + i.id; }
-    });
-    render();
+    return [html, after];
   }
 
   function newInitiative() {
     return {
-      id: uid(), slug: '', title: 'مبادرة جديدة', summary: '', date: new Date().toISOString().slice(0, 10), status: 'draft', featured: false,
-      location: '', governorate: '', audience: '', audienceGroups: [], type: '', themes: [], project: 'بنك المبادرات', beneficiaries: null,
-      cover: '', gallery: [], team: [], sourceUrl: '',
+      id: uid(), slug: '', title: '', summary: '', date: new Date().toISOString().slice(0, 10), status: 'draft', featured: false,
+      location: '', governorate: '', audience: '', audienceGroups: [], type: '', themes: [], project: 'بنك المبادرات', beneficiaries: null, cover: '', gallery: [], team: [], sourceUrl: '',
       blocks: [
         { kind: 'section', icon: 'ℹ', title: 'ما هي؟', paragraphs: [] },
         { kind: 'section', icon: '❔', title: 'لماذا المُبادرة؟', paragraphs: [] },
@@ -252,307 +356,404 @@
       ],
     };
   }
+  const BLOCK_TPL = { section: { kind: 'section', icon: '•', title: 'عنوان القسم', paragraphs: [] }, quote: { kind: 'quote', text: '', author: '' }, info: { kind: 'info', icon: '👥', title: 'معلومات', cards: [{ label: '', lines: [] }] }, gallery: { kind: 'gallery', icon: '🖼', title: 'صور من المُبادرة', images: [] }, team: { kind: 'team', icon: '🧑‍🤝‍🧑', title: 'فريق المُبادرة', paragraphs: [], members: [] }, closing: { kind: 'closing', paragraphs: [] } };
 
-  function syncDerived(i) {
-    const g = (i.blocks || []).find((b) => b.kind === 'gallery'); i.gallery = g ? g.images.slice() : [];
-    const t = (i.blocks || []).find((b) => b.kind === 'team'); i.team = t ? clone(t.members) : [];
-  }
-
-  function blockEditor(b, k, n) {
-    const p = `blocks.${k}`;
-    const head = `<div class="blk-h"><span class="k">${BLOCK_KINDS[b.kind]}</span><span class="t">${esc(b.title || (b.kind === 'quote' ? (b.text || '').slice(0, 60) : ''))}</span>
-      <button type="button" class="btn sm icon" data-bup="${k}" ${k === 0 ? 'disabled' : ''} title="أعلى">${icon('arrowR', 'i')}</button>
-      <button type="button" class="btn sm icon" data-bdown="${k}" ${k === n - 1 ? 'disabled' : ''} title="أسفل">${icon('arrowL', 'i')}</button>
-      <button type="button" class="btn sm icon" data-bfold="${k}" title="طي">${icon('menu', 'i')}</button>
-      <button type="button" class="btn sm icon danger" data-bdel="${k}" title="حذف">${icon('x', 'i')}</button></div>`;
+  function blockEd(b, k, n, folded) {
+    const p = `blocks.${k}`; const [label, c] = BLOCK[b.kind];
+    const head = `<div class="blk-h" style="--gc:${c}"><span class="e">${esc(b.icon || (b.kind === 'quote' ? '❝' : '¶'))}</span><span class="k">${label}</span><span class="t">${esc(b.title || (b.text || (b.paragraphs || [])[0] || '').slice(0, 70))}</span>
+      <button type="button" class="icon-btn sm" data-bup="${k}" ${k ? '' : 'disabled'} aria-label="تحريك لأعلى">${svg('up')}</button><button type="button" class="icon-btn sm" data-bdown="${k}" ${k === n - 1 ? 'disabled' : ''} aria-label="تحريك لأسفل">${svg('down')}</button>
+      <button type="button" class="icon-btn sm" data-bfold="${k}" aria-label="طي">${svg(folded ? 'left' : 'down')}</button><button type="button" class="icon-btn sm danger" data-bdel="${k}" aria-label="حذف">${svg('trash')}</button></div>`;
+    const tRow = `<div class="title-row">${fld(p + '.icon', 'أيقونة', b.icon)}${fld(p + '.title', 'العنوان', b.title)}</div>`;
     let body = '';
-    const titleRow = `<div class="f title-row">${fIn(p + '.icon', 'أيقونة', b.icon, { ph: '🎯' })}${fIn(p + '.title', 'العنوان', b.title)}</div>`;
-    if (b.kind === 'section') body = `<div class="f">${titleRow}${fTa(p + '.paragraphs', 'الفقرات (كل سطر فقرة)', b.paragraphs, { t: 'lines', h: 'السطر القصير بدون نقطة يتبعه نص يظهر كعنوان فرعي.' })}${fTa(p + '.items', 'قائمة نقاط (كل سطر نقطة) — اختياري', b.items, { t: 'lines' })}</div>`;
-    if (b.kind === 'quote') body = `<div class="f">${fTa(p + '.text', 'نص الاقتباس', b.text)}${fIn(p + '.author', 'القائل', b.author)}</div>`;
-    if (b.kind === 'closing') body = `<div class="f">${fTa(p + '.paragraphs', 'الفقرات (كل سطر فقرة)', b.paragraphs, { t: 'lines' })}</div>`;
-    if (b.kind === 'info') body = `<div class="f">${titleRow}<div class="sub-list">${(b.cards || []).map((c, j) => `<div class="sub-item">${fIn(`${p}.cards.${j}.label`, 'عنوان البطاقة', c.label)}${fTa(`${p}.cards.${j}.lines`, 'الأسطر', c.lines, { t: 'lines' })}<button type="button" class="btn sm icon danger" data-rm="${p}.cards.${j}">${icon('x', 'i')}</button></div>`).join('')}</div><div><button type="button" class="btn sm" data-add="${p}.cards" data-tpl='{"label":"","lines":[]}'>+ بطاقة</button></div></div>`;
-    if (b.kind === 'gallery') body = `<div class="f">${titleRow}<div class="thumbs">${(b.images || []).map((im, j) => `<div class="th"><img src="${esc(src(im))}" alt="" loading="lazy"><button type="button" data-rm="${p}.images.${j}" title="إزالة">${icon('x', 'i')}</button><span class="ord"><button type="button" data-mv="${p}.images.${j}" data-d="-1" title="تقديم">${icon('arrowR', 'i')}</button><button type="button" data-mv="${p}.images.${j}" data-d="1" title="تأخير">${icon('arrowL', 'i')}</button></span></div>`).join('')}</div>
-      <div class="row"><button type="button" class="btn sm" data-gup="${p}.images">${icon('image', 'i')} رفع صور</button><button type="button" class="btn sm" data-gpick="${p}.images">من المكتبة</button><button type="button" class="btn sm" data-gurl="${p}.images">إضافة رابط</button></div></div>`;
-    if (b.kind === 'team') body = `<div class="f">${titleRow}${fTa(p + '.paragraphs', 'مقدمة (اختياري)', b.paragraphs, { t: 'lines' })}<div class="sub-list">${(b.members || []).map((m, j) => `<div class="sub-item three">${m.photo ? `<img src="${esc(src(m.photo))}" alt="">` : '<span class="ph"></span>'}${fIn(`${p}.members.${j}.name`, 'الاسم', m.name)}${fIn(`${p}.members.${j}.role`, 'الدور', m.role)}<div class="row" style="flex-direction:column"><button type="button" class="btn sm icon" data-upload="${p}.members.${j}.photo" title="صورة">${icon('image', 'i')}</button><button type="button" class="btn sm icon danger" data-rm="${p}.members.${j}">${icon('x', 'i')}</button></div></div>`).join('')}</div><div><button type="button" class="btn sm" data-add="${p}.members" data-tpl='{"name":"","role":"","photo":""}'>+ عضو</button></div></div>`;
-    return `<div class="blk" data-k="${k}">${head}<div class="blk-b">${body}</div></div>`;
+    if (b.kind === 'section') body = `${tRow}${area(p + '.paragraphs', 'الفقرات <small>كل سطر فقرة · السطر القصير بلا نقطة يظهر عنوانًا فرعيًا</small>', b.paragraphs, { t: 'lines', rows: 5 })}${area(p + '.items', 'قائمة نقاط <small>كل سطر نقطة · اختيارية</small>', b.items, { t: 'lines', rows: 3 })}`;
+    if (b.kind === 'quote') body = `${area(p + '.text', 'نص الاقتباس', b.text)}${fld(p + '.author', 'القائل/ة', b.author, { ph: 'الاسم، الصفة' })}`;
+    if (b.kind === 'closing') body = area(p + '.paragraphs', 'الفقرات (كل سطر فقرة)', b.paragraphs, { t: 'lines' });
+    if (b.kind === 'info') body = `${tRow}<div class="sub-list">${(b.cards || []).map((cd, j) => `<div class="sub-item">${fld(`${p}.cards.${j}.label`, 'عنوان البطاقة', cd.label)}${area(`${p}.cards.${j}.lines`, 'الأسطر', cd.lines, { t: 'lines', rows: 2 })}<button type="button" class="icon-btn sm danger" data-rm="${p}.cards.${j}" aria-label="حذف">${svg('trash')}</button></div>`).join('')}</div><button type="button" class="btn sm" style="justify-self:start" data-add="${p}.cards" data-tpl='{"label":"","lines":[]}'>${svg('plus')}بطاقة</button>`;
+    if (b.kind === 'gallery') body = `${tRow}<div class="gal">${(b.images || []).map((im, j) => `<figure><img src="${esc(src(im))}" alt="" loading="lazy">${j ? '' : '<span class="pill st-new first" style="background:var(--card)">الأولى</span>'}<div class="tools-ov"><span style="display:flex;gap:4px"><button type="button" data-mv="${p}.images.${j}" data-d="-1" aria-label="تقديم">${svg('right')}</button><button type="button" data-mv="${p}.images.${j}" data-d="1" aria-label="تأخير">${svg('left')}</button></span><button type="button" data-rm="${p}.images.${j}" aria-label="إزالة">${svg('trash')}</button></div></figure>`).join('')}
+      <button type="button" class="drop" style="aspect-ratio:4/3" data-gup="${p}.images">${svg('upload', 'width="22" height="22"')}<small>رفع صور</small></button></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap"><button type="button" class="btn sm" data-gpick="${p}.images">${svg('image')}من المكتبة</button><button type="button" class="btn sm" data-gurl="${p}.images">${svg('plus')}رابط صورة</button></div>`;
+    if (b.kind === 'team') body = `${tRow}${area(p + '.paragraphs', 'مقدمة <small>اختيارية</small>', b.paragraphs, { t: 'lines', rows: 2 })}<div class="sub-list">${(b.members || []).map((m, j) => `<div class="sub-item person">${m.photo ? `<img src="${esc(src(m.photo))}" alt="">` : `<span class="ph">${svg('users')}</span>`}${fld(`${p}.members.${j}.name`, 'الاسم', m.name)}${fld(`${p}.members.${j}.role`, 'الدور', m.role, { ph: 'منسق/ة، متطوع/ة…' })}<span style="display:flex;gap:4px"><button type="button" class="icon-btn sm" data-upload="${p}.members.${j}.photo" aria-label="صورة">${svg('image')}</button><button type="button" class="icon-btn sm danger" data-rm="${p}.members.${j}" aria-label="حذف">${svg('trash')}</button></span></div>`).join('')}</div><button type="button" class="btn sm" style="justify-self:start" data-add="${p}.members" data-tpl='{"name":"","role":"","photo":""}'>${svg('plus')}عضو</button>`;
+    return `<div class="blk${folded ? ' collapsed' : ''}" data-k="${k}">${head}<div class="blk-b form">${body}</div></div>`;
   }
 
-  function initiativeEditor(id) {
+  function vInitiativeEdit(id) {
     let i = id === 'new' ? null : D.initiatives.find((x) => String(x.id) === id);
-    if (!i) { if (id !== 'new') return notFound(); i = newInitiative(); D.initiatives.unshift(i); save(true); history.replaceState(null, '', '#initiative/' + i.id); }
+    if (!i) { if (id !== 'new') return [notFound()]; i = newInitiative(); D.initiatives.unshift(i); save(); log('أنشأ مبادرة جديدة'); history.replaceState(null, '', '#initiative/' + i.id); }
+    const projects = [...new Set(D.initiatives.map((x) => x.project).filter(Boolean))];
     const themes = [...new Set(D.initiatives.flatMap((x) => x.themes || []))];
     const groups = [...new Set(D.initiatives.flatMap((x) => x.audienceGroups || []))];
-    const projects = [...new Set(D.initiatives.map((x) => x.project).filter(Boolean))];
     const folded = new Set();
-    const render = () => {
+    const checks = () => {
       syncDerived(i);
-      setTop(i.title, '<a href="#initiatives">المبادرات</a> / تحرير');
-      view.innerHTML = `
-      <datalist id="dl-proj">${projects.map((x) => `<option value="${esc(x)}">`).join('')}</datalist>
-      <div class="cols side-r">
-        <div>
-          <div class="panel"><h2>الأساسيات</h2><div class="sub">ما يظهر في بطاقة المبادرة وأعلى صفحتها</div>
-            <div class="f g2">
-              ${fIn('title', 'عنوان المبادرة', i.title, { cls: 'full' })}
-              ${fTa('summary', 'الملخص', i.summary, { cls: 'full', h: `${(i.summary || '').length} حرف — يُفضّل 120–220 حرفًا` })}
-              ${fIn('location', 'مكان التنفيذ (مختصر)', i.location, { ph: 'مخيم…، المحافظة' })}
-              ${fSel('governorate', 'المحافظة', i.governorate, [['', '— اختر —'], ...GOVS])}
-              ${fIn('audience', 'الفئة المستهدفة (نص)', i.audience)}
-              ${fIn('type', 'نوع المبادرة', i.type, { ph: 'شبابية توعوية مجتمعية' })}
-              ${fIn('themes', 'المجالات (افصل بفاصلة)', i.themes, { t: 'tags', h: 'المتاح: ' + themes.join('، ') })}
-              ${fIn('audienceGroups', 'مجموعات الفئات (افصل بفاصلة)', i.audienceGroups, { t: 'tags', h: 'المتاح: ' + groups.join('، ') })}
-              ${fIn('project', 'المسار / المشروع', i.project, { list: 'dl-proj' })}
-              ${fIn('beneficiaries', 'عدد المستفيدين', i.beneficiaries, { t: 'num', type: 'number' })}
-            </div>
-          </div>
-          <div class="panel"><div class="panel-head"><div><h2>محتوى الصفحة</h2><div class="sub">كتل تُعرض بالترتيب في صفحة المبادرة</div></div>
-            <div class="row"><select class="sel" id="addKind" style="width:auto">${Object.entries(BLOCK_KINDS).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select><button type="button" class="btn sm pri" id="addBlock">+ إضافة كتلة</button></div></div>
-            <div class="blocks">${(i.blocks || []).map((b, k, a) => blockEditor(b, k, a.length)).join('')}</div>
-          </div>
-        </div>
-        <div style="position:sticky;top:76px">
-          <div class="panel"><h2>النشر</h2><div class="sub">&nbsp;</div><div class="f">
-            ${fSel('status', 'الحالة', i.status, Object.entries(STATUS).map(([k, v]) => [k, v[0]]))}
-            ${fIn('date', 'تاريخ النشر', i.date, { type: 'date' })}
-            ${fSw('featured', 'مبادرة مميزة (تظهر أولًا في الرئيسية)', i.featured)}
-            <div class="row"><button type="button" class="btn blue" id="prev">${icon('link', 'i')} معاينة</button><button type="button" class="btn danger" id="del">${icon('x', 'i')} حذف</button></div>
-          </div></div>
-          <div class="panel">${fImg('cover', 'صورة الغلاف', i.cover)}</div>
-          <div class="panel small muted">المعرف: <b dir="ltr">${i.id}</b>${i.sourceUrl ? `<br>المصدر الأصلي: <a href="${esc(i.sourceUrl)}" target="_blank" rel="noopener">initiativesbank.ps</a>` : ''}<br>${(i.gallery || []).length} صورة · ${(i.team || []).length} عضو فريق</div>
-        </div>
-      </div>`;
-      $$('.blk').forEach((el) => { if (folded.has(+el.dataset.k)) el.classList.add('collapsed'); });
+      const c = [
+        [i.title.length >= 15 && i.title.length <= 90, 'عنوان واضح', 'بين 15 و90 حرفًا'],
+        [i.summary.length >= 80 && i.summary.length <= 240, 'ملخص مناسب', i.summary.length > 240 ? 'أطول من 240 حرفًا — اختصره' : 'بين 80 و240 حرفًا'],
+        [!!i.cover, 'صورة غلاف', 'تظهر في البطاقات وعند المشاركة'],
+        [!!i.governorate && !!i.location, 'المكان والمحافظة', 'تعتمد عليهما فلاتر المكتبة'],
+        [(i.themes || []).length > 0, 'مجال واحد على الأقل', 'لتصنيف المبادرة'],
+        [i.gallery.length >= 3, 'معرض صور', `${i.gallery.length} صور — يُفضّل 3 أو أكثر`, 'warn'],
+        [i.team.length > 0, 'فريق المبادرة', 'أسماء المُبادرين وأدوارهم', 'warn'],
+        [!!i.beneficiaries, 'عدد المستفيدين', 'لبناء مؤشر الأثر', 'warn'],
+      ];
+      $('#check').innerHTML = c.map(([ok, t, s, w]) => `<li class="${ok ? 'ok' : w ? 'warn' : ''}"><i>${ok ? '✓' : w ? '!' : '·'}</i><div>${t}<small>${s}</small></div></li>`).join('');
+      const p = Math.round((c.filter((x) => x[0]).length / c.length) * 100); $('#ring').style.setProperty('--p', p); $('#ringN').textContent = p + '%';
+      $('#serpT').textContent = (i.title || 'بلا عنوان').slice(0, 60) + ' | بنك المبادرات'; $('#serpD').textContent = i.summary.slice(0, 155) + (i.summary.length > 155 ? '…' : '');
+      updCounts(i);
     };
-    render();
-    bind(view, i, (el) => { if (el.dataset.p === 'title') setTop(i.title, '<a href="#initiatives">المبادرات</a> / تحرير'); });
-    wireImages(view, i, render);
-    view.addEventListener('click', async (e) => {
-      const t = e.target.closest('button'); if (!t) return;
-      const B = i.blocks; const d = t.dataset;
-      if (t.id === 'addBlock') { const k = $('#addKind').value; B.push({ section: { kind: 'section', icon: '•', title: 'عنوان القسم', paragraphs: [] }, quote: { kind: 'quote', text: '', author: '' }, info: { kind: 'info', icon: '👥', title: 'معلومات', cards: [{ label: '', lines: [] }] }, gallery: { kind: 'gallery', icon: '🖼', title: 'صور من المُبادرة', images: [] }, team: { kind: 'team', icon: '🧑‍🤝‍🧑', title: 'فريق المُبادرة', paragraphs: [], members: [] }, closing: { kind: 'closing', paragraphs: [] } }[k]); }
-      else if (d.bup) { const k = +d.bup; [B[k - 1], B[k]] = [B[k], B[k - 1]]; }
-      else if (d.bdown) { const k = +d.bdown; [B[k + 1], B[k]] = [B[k], B[k + 1]]; }
-      else if (d.bdel) { if (!confirm('حذف هذه الكتلة؟')) return; B.splice(+d.bdel, 1); }
-      else if (d.bfold) { const k = +d.bfold; folded.has(k) ? folded.delete(k) : folded.add(k); t.closest('.blk').classList.toggle('collapsed'); return; }
-      else if (d.rm) { const ks = d.rm.split('.'); const j = +ks.pop(); getPath(i, ks.join('.')).splice(j, 1); }
-      else if (d.mv) { const ks = d.mv.split('.'); const j = +ks.pop(); const arr = getPath(i, ks.join('.')); const to = j + +d.d; if (to < 0 || to >= arr.length) return; [arr[j], arr[to]] = [arr[to], arr[j]]; }
-      else if (d.add) { getPath(i, d.add).push(JSON.parse(d.tpl)); }
-      else if (d.gup) { const fs = await pickFile(); if (!fs.length) return; toast('جارٍ رفع الصور…'); try { for (const f of fs) getPath(i, d.gup).push(await uploadImage(f)); } catch (err) { toast('فشل الرفع: ' + err.message, true); } }
-      else if (d.gpick) { const v = await mediaPicker(); if (!v) return; getPath(i, d.gpick).push(v); }
-      else if (d.gurl) { const v = prompt('رابط الصورة أو مسارها داخل الموقع:'); if (!v) return; getPath(i, d.gurl).push(v.trim()); }
-      else if (t.id === 'prev') { syncDerived(i); IB.safeSet(IB.DRAFT_KEY, JSON.stringify(D)); IB.safeSet(IB.PREVIEW_KEY, '1'); window.open('../initiative.html?id=' + i.id, '_blank'); return; }
-      else if (t.id === 'del') { if (!confirm('حذف المبادرة؟')) return; D.initiatives = D.initiatives.filter((x) => x !== i); save(); location.hash = '#initiatives'; return; }
-      else return;
-      save(true); render();
-    });
+    const html = () => `
+      <datalist id="dlp">${projects.map((x) => `<option value="${esc(x)}">`).join('')}</datalist>
+      <div class="ed-bar" style="--gc:var(--orange)"><a class="btn ghost" href="#initiatives">→ المبادرات</a><span class="ed-type">${svg('spark')}مبادرة</span>
+        <span class="pill ${ST[i.status][1]}">${ST[i.status][0]}</span><span class="saved" id="saved"><i></i><span>محفوظة</span></span>
+        <div class="actions"><button class="btn" id="pv">${svg('eye')}معاينة</button>${i.status === 'published' ? `<button class="btn" data-status="draft">إخفاء من الموقع</button>` : `<button class="btn primary" data-status="published">${svg('check')}جاهزة للنشر</button>`}</div></div>
+      <div class="flow" aria-label="مراحل المبادرة">${['مسودة', 'جاهزة', 'منشورة على الموقع'].map((l, k) => { const pubNow = PUB.initiatives.some((x) => x.id === i.id && x.status === 'published' && JSON.stringify(x) === JSON.stringify(i)); const at = i.status === 'published' ? (pubNow ? 2 : 1) : 0; return `${k ? '<i>←</i>' : ''}<span class="${k < at ? 'done' : k === at ? 'now' : ''}">${k < at ? '✓ ' : ''}${l}</span>`; }).join('')}</div>
+      <div class="grid g-main">
+        <div class="stack">
+          <div><textarea class="title-in" data-p="title" rows="1" aria-label="عنوان المبادرة" placeholder="عنوان المبادرة">${esc(i.title)}</textarea>
+            <div class="slug">${svg('globe', 'width="14" height="14"')}<span>initiative.html?id=</span><code>${i.id}</code>${i.sourceUrl ? `<a href="${esc(i.sourceUrl)}" target="_blank" rel="noopener" class="muted">· المصدر الأصلي ↗</a>` : ''}</div>
+            <div class="cover">${i.cover ? `<img src="${esc(src(i.cover))}" alt="">` : `<div class="ph">${svg('image', 'width="28" height="28"')} أضف صورة غلاف</div>`}<div class="over"><button class="btn sm" data-upload="cover">${svg('upload')}رفع</button><button class="btn sm" data-pick="cover">${svg('image')}${i.cover ? 'تغيير' : 'اختيار'}</button></div></div></div>
+          <section class="card card-b panel"><h4>تفاصيل المبادرة</h4><div class="form cols">
+            ${area('summary', 'الملخص', i.summary, { cls: 'full', count: 240, h: 'يظهر في بطاقة المبادرة وأعلى صفحتها وفي Google' })}
+            ${fld('location', 'مكان التنفيذ (مختصر)', i.location, { ph: 'مخيم…، المحافظة' })}
+            ${sel('governorate', 'المحافظة', i.governorate, [['', '— اختر —'], ...GOVS])}
+            ${fld('audience', 'الفئة المستهدفة', i.audience)}
+            ${fld('type', 'نوع المبادرة', i.type, { ph: 'شبابية توعوية مجتمعية' })}
+            ${fld('beneficiaries', 'عدد المستفيدين', i.beneficiaries, { t: 'num', type: 'number' })}
+            ${fld('project', 'المسار / المشروع', i.project, { list: 'dlp' })}
+          </div></section>
+          <section class="card"><div class="card-h"><div><h3>محتوى الصفحة</h3><small class="muted">${i.blocks.length} كتلة تُعرض بالترتيب في صفحة المبادرة</small></div>
+            <span class="end"><select class="in" id="addKind" style="inline-size:auto;padding:6px 10px" aria-label="نوع الكتلة">${Object.entries(BLOCK).map(([k, v]) => `<option value="${k}">${v[0]}</option>`).join('')}</select><button type="button" class="btn sm primary" id="addBlock">${svg('plus')}كتلة</button></span></div>
+            <div class="card-b blocks">${i.blocks.map((b, k, a) => blockEd(b, k, a.length, folded.has(k))).join('')}</div></section>
+        </div>
+        <aside class="stack">
+          <section class="card card-b panel"><h4>جاهزية النشر <small><span class="ring" id="ring"><span id="ringN">0%</span></span></small></h4><ul class="check" id="check"></ul></section>
+          <section class="card card-b panel"><h4>النشر</h4><div class="form">
+            ${fld('date', 'تاريخ النشر', i.date, { type: 'date' })}
+            <div class="trans"><div style="flex:1"><b style="font-weight:500">مبادرة مميزة</b><br><small class="muted">تظهر أولًا في الصفحة الرئيسية</small></div>${sw('featured', i.featured, 'مبادرة مميزة')}</div>
+          </div></section>
+          <section class="card card-b panel"><h4>التصنيف</h4><div class="form">
+            ${fld('themes', 'المجالات <small>افصل بفاصلة</small>', i.themes, { t: 'tags' })}<div class="chips">${themes.filter((t) => !(i.themes || []).includes(t)).map((t) => `<button type="button" class="chip" data-addtag="themes" data-v="${esc(t)}">+ ${esc(t)}</button>`).join('')}</div>
+            ${fld('audienceGroups', 'الفئات <small>افصل بفاصلة</small>', i.audienceGroups, { t: 'tags' })}<div class="chips">${groups.filter((t) => !(i.audienceGroups || []).includes(t)).map((t) => `<button type="button" class="chip" data-addtag="audienceGroups" data-v="${esc(t)}">+ ${esc(t)}</button>`).join('')}</div>
+          </div></section>
+          <section class="card card-b panel"><h4>كيف تظهر في Google</h4><div class="serp"><span>initiativesbank.ps › initiatives</span><b id="serpT"></b><p id="serpD"></p></div></section>
+          <button class="btn danger" id="del">${svg('trash')}حذف المبادرة</button>
+        </aside>
+      </div>`;
+    const after = () => {
+      const page = $('#page');
+      const rer = () => { const y = scrollY; page.innerHTML = `<div class="view">${html()}</div>`; checks(); scrollTo(0, y); };
+      bind(page, i, (el) => { if (el.dataset.p === 'title') $('#crumbT').textContent = i.title || 'مبادرة جديدة'; checks(); });
+      wireImages(page, i, rer); wireSwitches(page, i);
+      page.addEventListener('click', async (e) => {
+        const t = e.target.closest('button'); if (!t || t.matches('[data-upload],[data-pick],[data-sw]')) return; const d = t.dataset; const B = i.blocks;
+        if (t.id === 'pv') { syncDerived(i); return preview('initiative.html?id=' + i.id); }
+        if (d.status) { i.status = d.status; save(d.status === 'published' ? 'عُلّمت جاهزة — انشرها من «النشر»' : 'أُخفيت من الموقع'); log(`${d.status === 'published' ? 'جهّز للنشر' : 'أخفى'} «${i.title}»`); return rer(); }
+        if (t.id === 'del') { const k = D.initiatives.indexOf(i); D.initiatives.splice(k, 1); save(); log(`حذف «${i.title}»`); location.hash = '#initiatives'; return toast('حُذفت المبادرة', () => { D.initiatives.splice(k, 0, i); save(); location.hash = '#initiative/' + i.id; }); }
+        if (d.addtag) { i[d.addtag] = [...(i[d.addtag] || []), d.v]; save(); return rer(); }
+        if (t.id === 'addBlock') { B.push(clone(BLOCK_TPL[$('#addKind').value])); toast('أُضيفت كتلة في آخر الصفحة'); }
+        else if (d.bup) { const k = +d.bup; [B[k - 1], B[k]] = [B[k], B[k - 1]]; }
+        else if (d.bdown) { const k = +d.bdown; [B[k + 1], B[k]] = [B[k], B[k + 1]]; }
+        else if (d.bfold) { const k = +d.bfold; folded.has(k) ? folded.delete(k) : folded.add(k); t.closest('.blk').classList.toggle('collapsed'); return; }
+        else if (d.bdel) { const k = +d.bdel; const [old] = B.splice(k, 1); save(); rer(); return toast('حُذفت الكتلة', () => { B.splice(k, 0, old); save(); rer(); }); }
+        else if (d.rm) { const ks = d.rm.split('.'); const j = +ks.pop(); getPath(i, ks.join('.')).splice(j, 1); }
+        else if (d.mv) { const ks = d.mv.split('.'); const j = +ks.pop(); const a = getPath(i, ks.join('.')); const to = j + +d.d; if (to < 0 || to >= a.length) return; [a[j], a[to]] = [a[to], a[j]]; }
+        else if (d.add) getPath(i, d.add).push(JSON.parse(d.tpl));
+        else if (d.gup) { const fs = await pickFile(true); if (!fs.length) return; toast('جارٍ رفع الصور…'); try { for (const f of fs) getPath(i, d.gup).push(await uploadImage(f)); } catch (err) { toast('فشل الرفع: ' + err.message, null, true); } }
+        else if (d.gpick) { const v = await mediaPicker(); if (!v) return; getPath(i, d.gpick).push(v); }
+        else if (d.gurl) { const v = prompt('رابط الصورة أو مسارها داخل الموقع:'); if (!v) return; getPath(i, d.gurl).push(v.trim()); }
+        else return;
+        save(); rer();
+      });
+      checks();
+    };
+    return [html(), after, i.title || 'مبادرة جديدة'];
   }
 
   /* ====================== الأخبار ====================== */
-  function posts() {
-    view.innerHTML = `<div class="toolbar"><input class="in grow" id="q" type="search" placeholder="ابحث في الأخبار…"><a class="btn pri" href="#post/new">${icon('megaphone', 'i')} خبر جديد</a></div>
-    <div class="table-wrap"><table><thead><tr><th></th><th>العنوان</th><th>النوع</th><th>التاريخ</th><th>الحالة</th><th></th></tr></thead><tbody id="rows"></tbody></table></div>`;
-    const render = (q = '') => {
-      $('#rows').innerHTML = D.posts.filter((p) => !q || p.title.includes(q)).sort((a, b) => b.date.localeCompare(a.date)).map((p) => `<tr>
-        <td>${p.cover ? `<img class="thumb" src="${esc(src(p.cover))}" alt="" loading="lazy">` : '<span class="thumb ph"></span>'}</td><td><a class="ttl" href="#post/${p.id}">${esc(p.title)}</a></td>
-        <td><span class="tag ${p.kind === 'call' ? 'or' : 'new'}">${p.kind === 'call' ? 'دعوة مفتوحة' : 'قصة مبادرة'}</span></td><td class="small">${fmtDate(p.date)}</td>
-        <td><span class="tag ${STATUS[p.status][1]}">${STATUS[p.status][0]}</span></td>
-        <td><div class="row" style="flex-wrap:nowrap"><a class="btn sm" href="#post/${p.id}">تحرير</a><button class="btn sm icon danger" data-del="${p.id}">${icon('x', 'i')}</button></div></td></tr>`).join('') || '<tr><td colspan="6" class="empty">لا توجد أخبار</td></tr>';
-    };
-    $('#q').oninput = (e) => render(e.target.value);
-    $('#rows').onclick = (e) => { const d = e.target.closest('[data-del]'); if (d && confirm('حذف الخبر؟')) { D.posts = D.posts.filter((p) => p.id != d.dataset.del); save(); render(); } };
-    render();
-  }
-
-  function postEditor(id) {
-    let p = id === 'new' ? null : D.posts.find((x) => String(x.id) === id);
-    if (!p) { if (id !== 'new') return notFound(); p = { id: uid(), title: 'خبر جديد', date: new Date().toISOString().slice(0, 10), category: 'إعلانات', kind: 'story', status: 'draft', cover: '', excerpt: '', content: '<p></p>', sourceUrl: '' }; D.posts.unshift(p); save(true); history.replaceState(null, '', '#post/' + p.id); }
-    const render = () => {
-      setTop(p.title, '<a href="#posts">الأخبار</a> / تحرير');
-      view.innerHTML = `<div class="cols side-r"><div>
-        <div class="panel"><div class="f">${fIn('title', 'العنوان', p.title)}${fTa('excerpt', 'المقتطف (يظهر في البطاقات)', p.excerpt)}</div></div>
-        <div class="panel"><h2>المحتوى</h2><div class="sub">HTML بسيط: فقرات، عناوين، اقتباسات، قوائم، صور</div>
-          <div class="ed-tools">${[['p', 'فقرة'], ['h3', 'عنوان'], ['strong', 'غامق'], ['blockquote', 'اقتباس'], ['ul', 'قائمة'], ['img', 'صورة']].map(([t, l]) => `<button type="button" data-wrap="${t}">${l}</button>`).join('')}</div>
-          <div class="cols c2">${fTa('content', 'HTML', p.content, { code: true })}<div class="fld"><span class="l">معاينة</span><div class="preview-pane" id="pv"></div></div></div></div>
-      </div><div style="position:sticky;top:76px">
-        <div class="panel"><div class="f">${fSel('status', 'الحالة', p.status, Object.entries(STATUS).map(([k, v]) => [k, v[0]]))}${fSel('kind', 'النوع', p.kind, [['story', 'قصة مبادرة'], ['call', 'دعوة مفتوحة / إعلان']])}${fIn('date', 'التاريخ', p.date, { type: 'date' })}${fIn('category', 'التصنيف', p.category)}
-          <div class="row"><button class="btn blue" type="button" id="prev">${icon('link', 'i')} معاينة</button></div></div></div>
-        <div class="panel">${fImg('cover', 'صورة الغلاف', p.cover)}</div></div></div>`;
-      pv();
-    };
-    const pv = () => { $('#pv').innerHTML = p.content.replace(/src="(?!https?:|data:)([^"]+)"/g, 'src="../$1"'); };
-    render();
-    bind(view, p, (el) => { if (el.dataset.p === 'content') pv(); });
-    wireImages(view, p, render);
-    view.addEventListener('click', async (e) => {
-      const w = e.target.closest('[data-wrap]');
-      if (w) {
-        const ta = $('[data-p="content"]'); const [s, en] = [ta.selectionStart, ta.selectionEnd]; const sel = ta.value.slice(s, en) || 'نص';
-        let ins;
-        if (w.dataset.wrap === 'img') { const v = await mediaPicker(true); if (!v) return; ins = `<figure><img src="${v}" alt=""></figure>`; }
-        else if (w.dataset.wrap === 'ul') ins = `<ul>\n${sel.split('\n').map((l) => `<li>${l}</li>`).join('\n')}\n</ul>`;
-        else if (w.dataset.wrap === 'blockquote') ins = `<blockquote><p>${sel}</p><p><em>القائل</em></p></blockquote>`;
-        else ins = `<${w.dataset.wrap}>${sel}</${w.dataset.wrap}>`;
-        ta.setRangeText(ins, s, en, 'end'); ta.dispatchEvent(new Event('input', { bubbles: true })); ta.focus();
-      }
-      if (e.target.closest('#prev')) { IB.safeSet(IB.DRAFT_KEY, JSON.stringify(D)); IB.safeSet(IB.PREVIEW_KEY, '1'); window.open('../post.html?id=' + p.id, '_blank'); }
-    });
-  }
-
-  /* ====================== الطلبات ====================== */
-  function submissions(params) {
-    view.innerHTML = `
-    <div class="note" style="margin-bottom:14px">${icon('target', 'i')} الطلبات تحتوي بيانات شخصية لأعضاء الفرق، لذلك تُحفظ على هذا الجهاز فقط ولا تُنشر مع بيانات الموقع. لاستقبال الطلبات من كل الزوار ضع رابط استقبال في «محتوى الموقع ← النماذج»، ثم استورد ملف الطلبات هنا.</div>
-    <div class="toolbar"><input class="in grow" id="q" type="search" placeholder="ابحث في الطلبات…">
-      <select class="sel" id="fs" style="width:auto"><option value="">كل الحالات</option>${Object.entries(SUB_STATUS).map(([k, v]) => `<option value="${k}">${v[0]}</option>`).join('')}</select>
-      <button class="btn" id="imp">${icon('box', 'i')} استيراد JSON</button><button class="btn" id="csv">${icon('send', 'i')} تصدير CSV</button></div>
-    <div class="table-wrap"><table><thead><tr><th>رقم</th><th>المبادرة</th><th>النموذج</th><th>الموقع</th><th>المجالات</th><th>الاستلام</th><th>الحالة</th><th></th></tr></thead><tbody id="rows"></tbody></table></div>
-    <div class="drawer-bg" id="dbg"></div><aside class="drawer" id="drw" aria-label="تفاصيل الطلب"></aside>`;
-    let st = { q: '', s: '' };
-    const render = () => {
-      const r = SUBS.filter((s) => (!st.s || s.status === st.s) && (!st.q || JSON.stringify(s).includes(st.q)));
-      $('#rows').innerHTML = r.map((s) => `<tr><td class="small" dir="ltr">${esc(s.id)}</td><td><a class="ttl" href="#" data-open="${esc(s.id)}">${esc(s.title)}</a></td>
-        <td><span class="tag ${s.form === 'pwd' ? 'or' : ''}">${s.form === 'pwd' ? 'ذوو الإعاقة' : 'عام'}</span></td><td class="small">${esc(s.location)}</td><td class="small">${esc((s.domains || []).join('، '))}</td>
-        <td class="small">${fmtDate((s.receivedAt || '').slice(0, 10))}</td>
-        <td><select class="sel" data-st="${esc(s.id)}" style="width:auto;padding:4px 8px">${Object.entries(SUB_STATUS).map(([k, v]) => `<option value="${k}"${k === s.status ? ' selected' : ''}>${v[0]}</option>`).join('')}</select></td>
-        <td><button class="btn sm" data-open="${esc(s.id)}">عرض</button></td></tr>`).join('') || '<tr><td colspan="8" class="empty">لا توجد طلبات</td></tr>';
-    };
-    const open = (id) => {
-      const s = SUBS.find((x) => x.id === id); if (!s) return;
-      $('#drw').innerHTML = `<div class="row between" style="margin-bottom:14px"><h2>${esc(s.title)}</h2><button class="btn icon" id="cls">${icon('x', 'i')}</button></div>
-        <dl class="kv"><dt>رقم الطلب</dt><dd dir="ltr">${esc(s.id)}</dd><dt>تاريخ الاستلام</dt><dd>${esc((s.receivedAt || '').replace('T', ' ').slice(0, 16))}</dd><dt>النموذج</dt><dd>${s.form === 'pwd' ? 'مبادرات ذوي الإعاقة' : 'عام'}</dd>
-        <dt>المجالات</dt><dd>${esc((s.domains || []).join('، '))}</dd><dt>الفئات</dt><dd>${esc((s.audiences || []).join('، '))}</dd><dt>الموقع</dt><dd>${esc(s.location)}</dd><dt>المدة</dt><dd>${esc(s.duration)}</dd><dt>الميزانية</dt><dd>${esc(s.budget)}</dd>
-        <dt>المشكلة</dt><dd>${esc(s.problem)}</dd><dt>الأهداف</dt><dd>${esc(s.goals)}</dd><dt>الأنشطة</dt><dd>${esc(s.activities)}</dd>${s.access ? `<dt>المواءمة</dt><dd>${esc(s.access)}</dd>` : ''}
-        <dt>الفريق</dt><dd>${(s.members || []).map((m) => `${esc(m.name)} — <span dir="ltr">${esc(m.phone)}</span> — ${esc(m.email)}`).join('<br>')}</dd></dl>
-        <div class="fld" style="margin:16px 0"><label>ملاحظات الفريق</label><textarea class="ta" id="notes">${esc(s.notes || '')}</textarea></div>
-        <div class="row"><button class="btn pri" id="toInit">${icon('spark', 'i')} تحويل إلى مبادرة (مسودة)</button><button class="btn" id="toIdea">${icon('bulb', 'i')} إضافة لبنك الأفكار</button>
-          <a class="btn" href="mailto:${esc((s.members[0] || {}).email || '')}?subject=${encodeURIComponent('بنك المبادرات: ' + s.title)}">${icon('mail', 'i')} مراسلة</a><button class="btn danger" id="rmS">حذف</button></div>`;
-      $('#drw').classList.add('open'); $('#dbg').classList.add('open');
-      const close = () => { $('#drw').classList.remove('open'); $('#dbg').classList.remove('open'); };
-      $('#cls').onclick = close; $('#dbg').onclick = close;
-      $('#notes').oninput = (e) => { s.notes = e.target.value; saveSubs(); };
-      $('#rmS').onclick = () => { if (!confirm('حذف الطلب من هذا الجهاز؟')) return; SUBS = SUBS.filter((x) => x !== s); saveSubs(); close(); render(); };
-      $('#toIdea').onclick = () => { D.ideas.unshift({ id: uid(), title: s.title, summary: (s.problem || '').slice(0, 260), domains: s.domains || [], location: s.location || '', status: 'draft', fromSubmission: s.id }); save(); toast('أُضيفت إلى بنك الأفكار كمسودة (بدون بيانات شخصية)'); };
-      $('#toInit').onclick = () => {
-        const i = newInitiative(); i.title = s.title; i.summary = (s.problem || '').slice(0, 220); i.location = s.location || ''; i.themes = s.domains || []; i.audience = (s.audiences || []).join('، ');
-        i.blocks[1].paragraphs = (s.problem || '').split('\n').filter(Boolean); i.blocks[3].items = (s.goals || '').split('\n').filter(Boolean); i.blocks[4].paragraphs = (s.activities || '').split('\n').filter(Boolean);
-        D.initiatives.unshift(i); s.status = 'accepted'; saveSubs(); save(true); location.hash = '#initiative/' + i.id;
+  function vPosts() {
+    const st = { tab: '', q: '' };
+    const html = hero('posts', `<a class="btn primary" href="#post/new">${svg('plus')}خبر جديد</a>`, [[D.posts.filter((p) => p.kind === 'call').length, 'دعوة مفتوحة'], [D.posts.filter((p) => p.kind !== 'call').length, 'قصة مبادرة'], [D.posts.filter((p) => p.status !== 'published').length, 'مسودة']]) + `
+    <section class="card" style="--gc:var(--orange)">
+      <div class="tabs">${[['', 'الكل', D.posts.length], ['call', 'دعوات مفتوحة', D.posts.filter((p) => p.kind === 'call').length], ['story', 'قصص المبادرات', D.posts.filter((p) => p.kind !== 'call').length]].map(([k, l, n]) => `<button data-tab="${k}" aria-selected="${!k}">${l}<span>${n}</span></button>`).join('')}</div>
+      <div class="toolbar"><label class="field grow">${svg('search')}<span class="sr">بحث</span><input id="q" placeholder="ابحث في العناوين…"></label></div>
+      <div style="overflow-x:auto"><table class="table"><thead><tr><th>الخبر</th><th>النوع</th><th>الحالة</th><th>التاريخ</th><th></th></tr></thead><tbody id="rows"></tbody></table></div></section>`;
+    const after = () => {
+      const render = () => {
+        $('#rows').innerHTML = D.posts.filter((p) => (!st.tab || (st.tab === 'call' ? p.kind === 'call' : p.kind !== 'call')) && (!st.q || p.title.includes(st.q))).sort((a, b) => b.date.localeCompare(a.date)).map((p) => `<tr data-id="${p.id}">
+          <td><div class="it">${p.cover ? `<img class="thumb" src="${esc(src(p.cover))}" alt="" loading="lazy">` : `<span class="thumb">${svg('news', 'width="20" height="20"')}</span>`}<div><b><a href="#post/${p.id}">${esc(p.title || 'خبر بلا عنوان')}</a></b><small>${esc((p.excerpt || '').slice(0, 90))}…</small></div></div></td>
+          <td><span class="pill ${p.kind === 'call' ? 'st-review' : 'st-new'}">${p.kind === 'call' ? 'دعوة مفتوحة' : 'قصة مبادرة'}</span></td><td><span class="pill ${ST[p.status][1]}">${ST[p.status][0]}</span></td>
+          <td class="muted" style="white-space:nowrap">${fmtDate(p.date)}</td>
+          <td><div class="row-act"><a class="icon-btn sm" href="#post/${p.id}" aria-label="تحرير">${svg('edit')}</a><button class="icon-btn sm" data-prev aria-label="معاينة">${svg('eye')}</button><button class="icon-btn sm danger" data-del aria-label="حذف">${svg('trash')}</button></div></td></tr>`).join('') || '<tr><td colspan="5" class="empty">لا توجد أخبار</td></tr>';
       };
+      $$('[data-tab]').forEach((b) => { b.onclick = () => { st.tab = b.dataset.tab; $$('[data-tab]').forEach((x) => x.setAttribute('aria-selected', x === b)); render(); }; });
+      $('#q').oninput = (e) => { st.q = e.target.value; render(); };
+      $('#rows').onclick = (e) => {
+        const t = e.target.closest('button'); if (!t) return; const p = D.posts.find((x) => String(x.id) === t.closest('tr').dataset.id);
+        if (t.matches('[data-prev]')) preview('post.html?id=' + p.id);
+        if (t.matches('[data-del]')) { const k = D.posts.indexOf(p); D.posts.splice(k, 1); save(); log(`حذف خبر «${p.title}»`); render(); toast('حُذف الخبر', () => { D.posts.splice(k, 0, p); save(); render(); }); }
+      };
+      render();
     };
-    $('#q').oninput = (e) => { st.q = e.target.value; render(); };
-    $('#fs').onchange = (e) => { st.s = e.target.value; render(); };
-    $('#rows').addEventListener('change', (e) => { const s = SUBS.find((x) => x.id === e.target.dataset.st); if (s) { s.status = e.target.value; saveSubs(); } });
-    $('#rows').addEventListener('click', (e) => { const o = e.target.closest('[data-open]'); if (o) { e.preventDefault(); open(o.dataset.open); } });
-    $('#imp').onclick = async () => {
-      const i = document.createElement('input'); i.type = 'file'; i.accept = '.json,application/json';
-      i.onchange = async () => { try { const arr = [].concat(JSON.parse(await i.files[0].text())); const ids = new Set(SUBS.map((s) => s.id)); let n = 0; arr.forEach((s) => { if (s && s.title && !ids.has(s.id)) { s.id = s.id || 'S' + uid().toString(36); s.status = s.status || 'new'; SUBS.unshift(s); n++; } }); saveSubs(); render(); toast(`تم استيراد ${n} طلب`); } catch (err) { toast('ملف غير صالح', true); } };
-      i.click();
+    return [html, after];
+  }
+
+  function vPostEdit(id) {
+    let p = id === 'new' ? null : D.posts.find((x) => String(x.id) === id);
+    if (!p) { if (id !== 'new') return [notFound()]; p = { id: uid(), title: '', date: new Date().toISOString().slice(0, 10), category: 'إعلانات', kind: 'story', status: 'draft', cover: '', excerpt: '', content: '<p></p>', sourceUrl: '' }; D.posts.unshift(p); save(); log('أنشأ خبرًا جديدًا'); history.replaceState(null, '', '#post/' + p.id); }
+    const html = () => `
+      <div class="ed-bar" style="--gc:var(--orange)"><a class="btn ghost" href="#posts">→ الإعلانات والأخبار</a><span class="ed-type">${svg('news')}${p.kind === 'call' ? 'دعوة مفتوحة' : 'قصة مبادرة'}</span>
+        <span class="pill ${ST[p.status][1]}">${ST[p.status][0]}</span><span class="saved" id="saved"><i></i><span>محفوظ</span></span>
+        <div class="actions"><button class="btn" id="pv">${svg('eye')}معاينة</button>${p.status === 'published' ? '<button class="btn" data-status="draft">إخفاء من الموقع</button>' : `<button class="btn primary" data-status="published">${svg('check')}جاهز للنشر</button>`}</div></div>
+      <div class="grid g-main"><div class="stack">
+        <div><textarea class="title-in" data-p="title" rows="1" placeholder="العنوان" aria-label="العنوان">${esc(p.title)}</textarea>
+          <div class="cover" style="margin-top:10px">${p.cover ? `<img src="${esc(src(p.cover))}" alt="">` : `<div class="ph">${svg('image', 'width="28" height="28"')} أضف صورة غلاف</div>`}<div class="over"><button class="btn sm" data-upload="cover">${svg('upload')}رفع</button><button class="btn sm" data-pick="cover">${svg('image')}المكتبة</button></div></div></div>
+        ${area('excerpt', 'المقتطف', p.excerpt, { count: 300 })}
+        <div class="grid g2"><div class="f"><span>النص <small>HTML بسيط</small></span><div><div class="ed-tools">${[['h3', 'عنوان'], ['p', 'فقرة'], ['strong', '<b>B</b>'], ['blockquote', '❝ اقتباس'], ['ul', '• قائمة'], ['img', 'صورة']].map(([t, l]) => `<button type="button" data-wrap="${t}">${l}</button>`).join('')}</div><textarea class="in code" data-p="content" rows="18" aria-label="النص">${esc(p.content)}</textarea></div></div>
+          <div class="f"><span>معاينة</span><div class="pv" id="pvb"></div></div></div>
+      </div><aside class="stack">
+        <section class="card card-b panel"><h4>النشر</h4><div class="form">${fld('date', 'التاريخ', p.date, { type: 'date' })}<div class="f"><span>النوع</span><div class="seg">${[['story', 'قصة مبادرة'], ['call', 'دعوة / إعلان']].map(([k, l]) => `<button type="button" data-k="${k}" aria-pressed="${p.kind === k}">${l}</button>`).join('')}</div></div>${fld('category', 'التصنيف', p.category)}</div></section>
+        <section class="card card-b panel"><h4>كيف تظهر في Google</h4><div class="serp"><span>initiativesbank.ps › news</span><b id="serpT"></b><p id="serpD"></p></div></section>
+        <button class="btn danger" id="del">${svg('trash')}حذف الخبر</button>
+      </aside></div>`;
+    const after = () => {
+      const page = $('#page');
+      const upd = () => { $('#pvb').innerHTML = p.content.replace(/src="(?!https?:|data:)([^"]+)"/g, 'src="../$1"'); $('#serpT').textContent = (p.title || 'بلا عنوان').slice(0, 60); $('#serpD').textContent = (p.excerpt || '').slice(0, 155); updCounts(p); };
+      const rer = () => { page.innerHTML = `<div class="view">${html()}</div>`; upd(); };
+      bind(page, p, (el) => { if (el.dataset.p === 'title') $('#crumbT').textContent = p.title || 'خبر جديد'; upd(); });
+      wireImages(page, p, rer);
+      page.addEventListener('click', async (e) => {
+        const t = e.target.closest('button'); if (!t) return;
+        if (t.id === 'pv') return preview('post.html?id=' + p.id);
+        if (t.dataset.status) { p.status = t.dataset.status; save(p.status === 'published' ? 'عُلّم جاهزًا — انشره من «النشر»' : 'أُخفي من الموقع'); log(`غيّر حالة خبر «${p.title}»`); return rer(); }
+        if (t.dataset.k) { p.kind = t.dataset.k; save(); return rer(); }
+        if (t.id === 'del') { const k = D.posts.indexOf(p); D.posts.splice(k, 1); save(); location.hash = '#posts'; return toast('حُذف الخبر', () => { D.posts.splice(k, 0, p); save(); location.hash = '#post/' + p.id; }); }
+        if (t.dataset.wrap) {
+          const ta = $('[data-p="content"]'); const [s0, s1] = [ta.selectionStart, ta.selectionEnd]; const s = ta.value.slice(s0, s1) || 'نص'; const w = t.dataset.wrap; let ins;
+          if (w === 'img') { const v = await mediaPicker(); if (!v) return; ins = `<figure><img src="${v}" alt=""></figure>`; }
+          else if (w === 'ul') ins = `<ul>\n${s.split('\n').map((l) => `<li>${l}</li>`).join('\n')}\n</ul>`;
+          else if (w === 'blockquote') ins = `<blockquote><p>${s}</p><p><em>القائل</em></p></blockquote>`;
+          else ins = `<${w}>${s}</${w}>`;
+          ta.setRangeText(ins, s0, s1, 'end'); ta.dispatchEvent(new Event('input', { bubbles: true })); ta.focus();
+        }
+      });
+      upd();
     };
-    $('#csv').onclick = () => {
-      const cols = ['id', 'receivedAt', 'status', 'form', 'title', 'domains', 'location', 'duration', 'audiences', 'budget', 'problem', 'goals', 'activities', 'access', 'contact_name', 'contact_phone', 'contact_email', 'team', 'notes'];
-      const rows = SUBS.map((s) => cols.map((c) => {
-        let v = c === 'contact_name' ? (s.members[0] || {}).name : c === 'contact_phone' ? (s.members[0] || {}).phone : c === 'contact_email' ? (s.members[0] || {}).email : c === 'team' ? (s.members || []).map((m) => m.name).join(' | ') : s[c];
-        v = Array.isArray(v) ? v.join('، ') : (v == null ? '' : String(v));
-        return '"' + v.replace(/"/g, '""') + '"';
-      }).join(','));
-      download('initiatives-bank-submissions.csv', '﻿' + [cols.join(','), ...rows].join('\n'), 'text/csv');
-    };
-    render();
-    if (params.get('open')) open(params.get('open'));
+    return [html(), after, p.title || 'خبر جديد'];
   }
 
   /* ====================== بنك الأفكار ====================== */
-  function ideas() {
-    const render = () => {
-      view.innerHTML = `<div class="note" style="margin-bottom:14px">الأفكار المنشورة هنا تظهر في صفحة «بنك الأفكار» العامة. لا تضع بيانات تواصل شخصية.</div>
-      <div class="toolbar"><span class="grow muted">${D.ideas.length} فكرة</span><button class="btn pri" id="add">+ فكرة جديدة</button></div>
-      <div class="cols c2">${D.ideas.map((x, k) => `<div class="panel"><div class="f">${fIn(`${k}.title`, 'عنوان الفكرة', x.title)}${fTa(`${k}.summary`, 'وصف مختصر', x.summary)}<div class="f g2">${fIn(`${k}.domains`, 'المجالات', x.domains, { t: 'tags' })}${fIn(`${k}.location`, 'المنطقة', x.location)}</div>
-        <div class="row between">${fSel(`${k}.status`, 'الحالة', x.status, [['draft', 'مسودة'], ['published', 'منشورة']])}<button class="btn sm danger" data-rm="${k}">حذف</button></div></div></div>`).join('') || '<div class="panel empty">لا توجد أفكار بعد. أضف فكرة أو حوّل طلبًا من صفحة الطلبات.</div>'}</div>`;
+  function vIdeas() {
+    const html = () => hero('ideas', `<button class="btn primary" id="add">${svg('plus')}فكرة جديدة</button>`, [[D.ideas.filter((x) => x.status === 'published').length, 'منشورة'], [D.ideas.filter((x) => x.status !== 'published').length, 'مسودة']]) +
+      (D.ideas.length ? `<div class="grid g2">${D.ideas.map((x, k) => `<section class="card card-b panel"><h4>${svg('bulb', 'width="16" height="16"')}${esc(x.title || 'فكرة بلا عنوان')} <small><span class="pill ${(ST[x.status] || ST.draft)[1]}">${(ST[x.status] || ST.draft)[0]}</span></small></h4><div class="form">
+        ${fld(`${k}.title`, 'عنوان الفكرة', x.title)}${area(`${k}.summary`, 'وصف مختصر', x.summary)}<div class="form cols">${fld(`${k}.domains`, 'المجالات', x.domains, { t: 'tags' })}${fld(`${k}.location`, 'المنطقة', x.location)}</div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><div class="seg">${[['draft', 'مسودة'], ['published', 'منشورة']].map(([s, l]) => `<button type="button" data-st="${k}" data-v="${s}" aria-pressed="${x.status === s}">${l}</button>`).join('')}</div>${x.fromSubmission ? `<span class="tag">من الطلب ${esc(x.fromSubmission)}</span>` : ''}<button class="btn sm danger" style="margin-inline-start:auto" data-rm="${k}">${svg('trash')}حذف</button></div></div></section>`).join('')}</div>`
+        : `<section class="card empty">${svg('bulb', 'width="34" height="34"')}<h3>لا توجد أفكار بعد</h3><p>أضف فكرة، أو حوّل طلبًا من «طلبات المبادرات» إلى فكرة بلا بيانات شخصية.</p></section>`);
+    const after = () => {
+      const page = $('#page'); const rer = () => { page.innerHTML = `<div class="view">${html()}</div>`; };
+      bind(page, D.ideas);
+      page.addEventListener('click', (e) => {
+        const t = e.target.closest('button'); if (!t) return;
+        if (t.id === 'add') { D.ideas.unshift({ id: uid(), title: '', summary: '', domains: [], location: '', status: 'draft' }); save(); log('أضاف فكرة'); rer(); }
+        if (t.dataset.st) { D.ideas[+t.dataset.st].status = t.dataset.v; save(); rer(); }
+        if (t.dataset.rm) { const k = +t.dataset.rm; const [old] = D.ideas.splice(k, 1); save(); rer(); toast('حُذفت الفكرة', () => { D.ideas.splice(k, 0, old); save(); rer(); }); }
+      });
     };
-    render(); bind(view, D.ideas);
-    view.addEventListener('click', (e) => {
-      if (e.target.closest('#add')) { D.ideas.unshift({ id: uid(), title: '', summary: '', domains: [], location: '', status: 'draft' }); save(true); render(); }
-      const r = e.target.closest('[data-rm]'); if (r && confirm('حذف الفكرة؟')) { D.ideas.splice(+r.dataset.rm, 1); save(); render(); }
-    });
+    return [html(), after];
   }
 
-  /* ====================== محتوى الموقع ====================== */
-  function listEditor(path, arr, fields, tpl, title) {
-    return `<div class="panel"><div class="panel-head"><div><h2>${title}</h2></div><button type="button" class="btn sm" data-add="${path}" data-tpl='${esc(JSON.stringify(tpl))}'>+ إضافة</button></div>
-      <div class="sub-list">${arr.map((x, j) => `<div class="sub-item" style="grid-template-columns:repeat(${fields.length},1fr) auto">${fields.map(([k, l, o]) => (o && o.img) ? fImg(`${path}.${j}.${k}`, l, x[k]) : (o && o.ta) ? fTa(`${path}.${j}.${k}`, l, x[k], o) : fIn(`${path}.${j}.${k}`, l, x[k], o || {})).join('')}
-      <div class="row" style="flex-direction:column"><button type="button" class="btn sm icon" data-mv="${path}.${j}" data-d="-1" title="تقديم">${icon('arrowR', 'i')}</button><button type="button" class="btn sm icon danger" data-rm="${path}.${j}">${icon('x', 'i')}</button></div></div>`).join('')}</div></div>`;
+  /* ====================== المسارات ====================== */
+  function vProjects() {
+    const m = tally(D.initiatives, (i) => i.project); const ks = sortKeys(m);
+    const html = hero('projects', '', [[ks.length, 'مسارات'], [D.initiatives.length, 'مبادرة']]) + `
+    <div class="grid g3">${ks.map((k, n) => { const its = D.initiatives.filter((i) => i.project === k); const photos = its.reduce((s, i) => s + (i.gallery || []).length, 0); const govs = new Set(its.map((i) => i.governorate).filter(Boolean)).size;
+      return `<article class="prog" style="--c:${PALETTE[n % PALETTE.length]}"><span class="tag" style="background:rgba(255,255,255,.18);color:#fff">مسار</span><h3>${esc(k)}</h3><p>${its.filter((i) => i.status === 'published').length} منشورة · آخرها ${fmtDate(its.map((i) => i.date).sort().pop())}</p><div class="n"><span><b>${m[k]}</b>مبادرة</span><span><b>${photos}</b>صورة</span><span><b>${govs}</b>محافظات</span></div></article>`; }).join('')}</div>
+    <section class="card" style="margin-top:18px"><div class="card-h"><h3>إعادة تسمية مسار</h3><span class="end muted">يُطبّق على كل مبادراته</span></div><div class="card-b form cols">
+      <label class="f"><span>المسار</span><select class="in" id="from">${ks.map((k) => `<option>${esc(k)}</option>`).join('')}</select></label>
+      <label class="f"><span>الاسم الجديد</span><input class="in" id="to" placeholder="مثال: الوصول للجميع (A4A)"></label>
+      <button class="btn primary" id="go" style="justify-self:start">تطبيق</button></div></section>
+    <section class="card" style="margin-top:18px"><div class="card-h"><h3>أحدث مبادرات كل مسار</h3></div>${ks.map((k) => D.initiatives.filter((i) => i.project === k).slice(0, 3).map((i) => `<div class="proj">${i.cover ? `<img src="${esc(src(i.cover))}" alt="">` : ''}<div style="flex:1;min-inline-size:0"><b style="font-weight:500">${esc(i.title)}</b><br><small class="muted">${esc(k)} · ${fmtDate(i.date)}</small></div><a class="btn sm" href="#initiative/${i.id}">تحرير</a></div>`).join('')).join('')}</section>`;
+    const after = () => { $('#go').onclick = () => { const f = $('#from').value, t = $('#to').value.trim(); if (!t) return toast('اكتب الاسم الجديد'); let n = 0; D.initiatives.forEach((i) => { if (i.project === f) { i.project = t; n++; } }); save(`أُعيدت تسمية المسار في ${n} مبادرة`); log(`أعاد تسمية المسار «${f}» إلى «${t}»`); route(); }; };
+    return [html, after];
   }
-  function content() {
-    const S = D.site;
-    const tabs = { brand: 'الهوية والرئيسية', about: 'من نحن', partners: 'الشركاء', stories: 'قصص الميدان', contact: 'التواصل', submit: 'نموذج التقديم', legal: 'الصفحات القانونية' };
-    let tab = 'brand';
-    const render = () => {
-      let body = '';
-      if (tab === 'brand') body = `<div class="panel"><h2>الهوية</h2><div class="sub">&nbsp;</div><div class="f g2">${fIn('brand.name', 'الاسم', S.brand.name)}${fIn('brand.nameEn', 'الاسم بالإنجليزية', S.brand.nameEn)}${fIn('brand.tagline', 'الشعار', S.brand.tagline)}${fIn('brand.org', 'الجهة المنفذة', S.brand.org)}${fTa('brand.intro', 'النص التعريفي', S.brand.intro, { cls: 'full' })}${fImg('brand.logo', 'الشعار (خلفية فاتحة)', S.brand.logo)}${fImg('brand.logoLight', 'الشعار (خلفية داكنة)', S.brand.logoLight)}${fImg('heroImages.0', 'الصورة الرئيسية في الواجهة', S.heroImages[0])}</div></div>`
-        + listEditor('stats', S.stats, [['value', 'الرقم', { t: 'num', type: 'number' }], ['label', 'الوصف'], ['icon', 'الأيقونة', { h: 'spark, bulb, people, hands' }]], { value: 0, label: '', icon: 'spark' }, 'أرقام الإنجازات')
-        + listEditor('values', S.values, [['title', 'القيمة'], ['text', 'الوصف', { ta: 1 }], ['icon', 'الأيقونة']], { title: '', text: '', icon: 'spark' }, 'القيم');
-      if (tab === 'about') body = `<div class="panel"><div class="f">${fTa('about.text', 'نص «من نحن» (كل سطر فقرة)', S.about.text, { t: 'lines', rows: 8 })}${fTa('about.vision', 'الرؤية', S.about.vision)}${fTa('about.mission', 'الرسالة', S.about.mission)}</div></div>`
-        + listEditor('supportWays', S.supportWays, [['title', 'طريقة الدعم'], ['text', 'الوصف', { ta: 1 }], ['icon', 'الأيقونة']], { title: '', text: '', icon: 'hands' }, 'طرق التعاون (صفحة ادعم البنك)');
-      if (tab === 'partners') body = listEditor('partners', S.partners, [['name', 'الاسم'], ['nameEn', 'بالإنجليزية'], ['role', 'الدور'], ['url', 'الرابط', { dir: 'ltr' }], ['logo', 'الشعار', { img: 1 }]], { name: '', nameEn: '', role: 'شريك', url: '', logo: '' }, 'الشركاء');
-      if (tab === 'stories') body = listEditor('testimonials', S.testimonials, [['quote', 'الشهادة', { ta: 1 }], ['name', 'الاسم'], ['role', 'المكان / المبادرة']], { quote: '', name: '', role: '' }, 'ماذا يقول المبادرون');
-      if (tab === 'contact') body = `<div class="panel"><div class="f g3">${fIn('contact.phone', 'الهاتف', S.contact.phone, { dir: 'ltr' })}${fIn('contact.ibEmail', 'بريد بنك المبادرات', S.contact.ibEmail, { dir: 'ltr' })}${fIn('contact.email', 'بريد المنتدى', S.contact.email, { dir: 'ltr' })}</div></div>`
-        + listEditor('contact.offices', S.contact.offices, [['city', 'المدينة'], ['address', 'العنوان']], { city: '', address: '' }, 'المكاتب')
-        + listEditor('contact.social', S.contact.social, [['name', 'المنصة', { h: 'Facebook, Instagram, X, LinkedIn, YouTube, TikTok' }], ['url', 'الرابط', { dir: 'ltr' }]], { name: '', url: '' }, 'حسابات التواصل');
-      if (tab === 'submit') body = `<div class="panel"><h2>استقبال الطلبات</h2><div class="sub">بدون هذا الرابط تُحفظ الطلبات في متصفح المتقدّم فقط، ويُعرض عليه إرسال نسخة بالبريد.</div><div class="f">${fIn('forms.endpoint', 'رابط استقبال النماذج (POST JSON)', S.forms.endpoint, { dir: 'ltr', ph: 'https://formspree.io/f/xxxx أو رابط Google Apps Script', h: 'مثل Formspree أو Google Apps Script. تصل البيانات بصيغة JSON.' })}</div></div>
-        <div class="panel"><div class="f g2">${fIn('submit.title', 'عنوان الصفحة', S.submit.title, { cls: 'full' })}${fTa('submit.intro', 'المقدمة', S.submit.intro, { cls: 'full' })}${fTa('submit.domains', 'المجالات (كل سطر مجال)', S.submit.domains, { t: 'lines', rows: 8 })}${fTa('submit.audiences', 'الفئات (كل سطر فئة)', S.submit.audiences, { t: 'lines', rows: 8 })}${fTa('submit.consent', 'بنود الموافقة المستنيرة', S.submit.consent, { t: 'lines', cls: 'full', rows: 6 })}</div></div>`
-        + listEditor('submit.steps', S.submit.steps, [['title', 'الخطوة'], ['text', 'الوصف']], { title: '', text: '' }, 'خطوات التقديم')
-        + listEditor('submit.faq', S.submit.faq, [['q', 'السؤال'], ['a', 'الجواب', { ta: 1 }]], { q: '', a: '' }, 'الأسئلة الشائعة');
-      if (tab === 'legal') body = ['privacy', 'terms'].map((k) => `<div class="panel"><div class="f">${fIn(`legal.${k}.title`, 'العنوان', S.legal[k].title)}${fIn(`legal.${k}.updated`, 'آخر تحديث', S.legal[k].updated, { type: 'date' })}${fTa(`legal.${k}.content`, 'المحتوى (HTML)', S.legal[k].content, { code: true })}</div></div>`).join('');
-      view.innerHTML = `<div class="row" style="margin-bottom:16px">${Object.entries(tabs).map(([k, v]) => `<button class="btn ${k === tab ? 'pri' : ''}" data-tab="${k}">${v}</button>`).join('')}</div>${body}`;
-    };
-    render(); bind(view, S); wireImages(view, S, render);
-    view.addEventListener('click', (e) => {
+
+  /* ====================== التصنيفات ====================== */
+  function vTaxonomies() {
+    const groups = [['themes', 'المجالات', (i) => i.themes], ['audienceGroups', 'الفئات المستهدفة', (i) => i.audienceGroups], ['governorate', 'المحافظات', (i) => i.governorate]];
+    const html = hero('taxonomies', '', groups.map(([, l, f]) => [Object.keys(tally(D.initiatives, f)).length, l])) + `
+    <div class="grid g3">${groups.map(([k, l, f]) => { const m = tally(D.initiatives, f); return `<section class="card"><div class="card-h"><h3>${l}</h3><span class="end muted">${Object.keys(m).length}</span></div>
+      <div class="card-b"><div class="chips">${sortKeys(m).map((t) => `<span class="chip">${esc(t)} <b class="muted">${m[t]}</b><button type="button" data-ren="${k}" data-v="${esc(t)}" aria-label="إعادة تسمية ${esc(t)}">${svg('edit', 'width="12" height="12"')}</button></span>`).join('')}</div>
+      <p class="muted" style="font-size:13px;margin:12px 0 0">إعادة التسمية تُطبّق على كل المبادرات. اكتب اسمًا موجودًا لدمج تصنيفين.</p></div></section>`; }).join('')}</div>`;
+    const after = () => { $('#page').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-ren]'); if (!b) return; const k = b.dataset.ren, v = b.dataset.v;
+      const to = prompt(`الاسم الجديد لـ «${v}» (اتركه فارغًا لإزالته):`, v); if (to === null || to === v) return;
+      let n = 0; D.initiatives.forEach((i) => { if (k === 'governorate') { if (i.governorate === v) { i.governorate = to.trim(); n++; } } else if ((i[k] || []).includes(v)) { i[k] = [...new Set(i[k].map((x) => (x === v ? to.trim() : x)).filter(Boolean))]; n++; } });
+      save(`طُبّق على ${n} مبادرة`); log(to ? `أعاد تسمية «${v}» إلى «${to}»` : `أزال التصنيف «${v}»`); route();
+    }); };
+    return [html, after];
+  }
+
+  /* ====================== قوائم المحتوى العامة ====================== */
+  function listCard(path, arr, fields, tpl, title, opts = {}) {
+    return `<section class="card"><div class="card-h"><h3>${title}</h3><span class="end"><span class="muted">${arr.length}</span><button type="button" class="btn sm" data-ladd="${path}" data-tpl='${esc(JSON.stringify(tpl))}'>${svg('plus')}إضافة</button></span></div>
+      <div class="card-b sub-list">${arr.map((x, j) => `<div class="sub-item" style="grid-template-columns:${opts.cols || `repeat(${fields.length},minmax(0,1fr))`} auto">${fields.map(([k, l, o = {}]) => (o.img ? imgPick(`${path}.${j}.${k}`, l, x[k]) : o.ta ? area(`${path}.${j}.${k}`, l, x[k], o) : fld(`${path}.${j}.${k}`, l, x[k], o))).join('')}
+        <span style="display:flex;flex-direction:column;gap:4px"><button type="button" class="icon-btn sm" data-lmv="${path}.${j}" aria-label="تقديم">${svg('up')}</button><button type="button" class="icon-btn sm danger" data-lrm="${path}.${j}" aria-label="حذف">${svg('trash')}</button></span></div>`).join('') || '<div class="empty">لا عناصر</div>'}</div></section>`;
+  }
+  function wireLists(page, base, rer) {
+    page.addEventListener('click', (e) => {
       const t = e.target.closest('button'); if (!t) return; const d = t.dataset;
-      if (d.tab) { tab = d.tab; render(); return; }
-      if (d.add) { getPath(S, d.add).push(JSON.parse(d.tpl)); }
-      else if (d.rm) { const ks = d.rm.split('.'); const j = +ks.pop(); getPath(S, ks.join('.')).splice(j, 1); }
-      else if (d.mv) { const ks = d.mv.split('.'); const j = +ks.pop(); const a = getPath(S, ks.join('.')); if (j > 0) [a[j - 1], a[j]] = [a[j], a[j - 1]]; }
-      else return;
-      save(); render();
+      if (d.ladd) { getPath(base, d.ladd).push(JSON.parse(d.tpl)); save('أُضيف عنصر'); rer(); }
+      else if (d.lmv) { const ks = d.lmv.split('.'); const j = +ks.pop(); const a = getPath(base, ks.join('.')); if (j > 0) { [a[j - 1], a[j]] = [a[j], a[j - 1]]; save(); rer(); } }
+      else if (d.lrm) { const ks = d.lrm.split('.'); const j = +ks.pop(); const a = getPath(base, ks.join('.')); const [old] = a.splice(j, 1); save(); rer(); toast('حُذف العنصر', () => { a.splice(j, 0, old); save(); rer(); }); }
     });
   }
+  function siteView(key, body, stats, onAfter) {
+    const html = () => hero(key, '', stats ? stats() : []) + body();
+    const after = () => { const page = $('#page'); const rer = () => { page.innerHTML = `<div class="view">${html()}</div>`; if (onAfter) onAfter(rer); }; bind(page, D.site); wireImages(page, D.site, rer); wireLists(page, D.site, rer); wireSwitches(page, D.site); if (onAfter) onAfter(rer); };
+    return [html(), after];
+  }
+  function vPartners() {
+    return siteView('partners', () => `<div class="grid g4">${D.site.partners.map((p) => `<article class="card partner"><div class="logo"><img src="${esc(src(p.logo))}" alt=""></div><b>${esc(p.name)}</b><small class="muted">${esc(p.role)}</small></article>`).join('')}</div><div style="margin-top:18px">${listCard('partners', D.site.partners, [['name', 'الاسم'], ['nameEn', 'بالإنجليزية'], ['role', 'الدور'], ['url', 'الرابط', { dir: 'ltr' }], ['logo', 'الشعار', { img: 1 }]], { name: '', nameEn: '', role: 'شريك', url: '', logo: '' }, 'تحرير الشركاء', { cols: 'repeat(2,minmax(0,1fr))' })}</div>`,
+      () => [[D.site.partners.length, 'شركاء ظاهرون في الموقع']]);
+  }
+  function vStories() {
+    return siteView('stories', () => listCard('testimonials', D.site.testimonials, [['quote', 'الشهادة', { ta: 1 }], ['name', 'الاسم'], ['role', 'المكان / المبادرة']], { quote: '', name: '', role: '' }, 'ماذا يقول المبادرون', { cols: '2fr 1fr 1fr' }),
+      () => [[D.site.testimonials.length, 'شهادة في الرئيسية']]);
+  }
+  function vHomepage() {
+    const S_ = D.site;
+    return siteView('homepage', () => `<div class="grid g-main"><div class="stack">
+      <section class="card"><div class="card-h"><h3>الواجهة الرئيسية</h3></div><div class="card-b form">${fld('brand.tagline', 'الشعار', S_.brand.tagline)}${area('brand.intro', 'النص التعريفي', S_.brand.intro)}${imgPick('heroImages.0', 'الصورة الرئيسية', S_.heroImages[0])}</div></section>
+      ${listCard('stats', S_.stats, [['value', 'الرقم', { t: 'num', type: 'number' }], ['label', 'الوصف'], ['icon', 'الأيقونة', { h: 'spark · bulb · people · hands' }]], { value: 0, label: '', icon: 'spark' }, 'أرقام الإنجازات')}
+      ${listCard('values', S_.values, [['title', 'القيمة'], ['text', 'الوصف', { ta: 1 }], ['icon', 'الأيقونة']], { title: '', text: '', icon: 'spark' }, 'نعمل مع الجميع من أجل (القيم)', { cols: '1fr 2fr 1fr' })}
+    </div><aside class="stack">
+      <section class="card"><div class="card-h"><h3>المبادرات المميزة</h3><span class="end muted">تظهر أولًا</span></div>${D.initiatives.filter((i) => i.featured).map((i) => `<div class="proj">${i.cover ? `<img src="${esc(src(i.cover))}" alt="" style="inline-size:64px;block-size:46px">` : ''}<div style="flex:1;min-inline-size:0;font-size:13.5px">${esc(i.title)}</div><button class="icon-btn sm" data-unfeat="${i.id}" aria-label="إلغاء التمييز">${svg('x')}</button></div>`).join('') || '<div class="empty">لا مبادرات مميزة — ميّزها من قائمة المبادرات ★</div>'}</section>
+      <section class="card card-b panel"><h4>معاينة مصغّرة</h4><div style="border:1px solid var(--line);border-radius:10px;overflow:hidden;font-size:11px;background:#071C30;color:#fff">
+        <div style="display:flex;gap:8px;align-items:center;padding:8px;border-bottom:1px solid rgba(255,255,255,.08)"><img src="../${esc(S_.brand.logoLight)}" alt="" style="block-size:16px"><span style="opacity:.6">المكتبة · الأفكار · الإعلانات</span></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:12px;align-items:center"><b style="font-size:14px;line-height:1.3">${esc(S_.brand.tagline)}</b><img src="${esc(src(S_.heroImages[0]))}" alt="" style="border-radius:8px;block-size:70px;inline-size:100%;object-fit:cover"></div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;padding:8px;background:#fff;color:#16222E">${S_.stats.map((s) => `<span style="text-align:center"><b style="display:block;font-size:13px">${fmt(s.value)}+</b>${esc(s.label)}</span>`).join('')}</div></div></section>
+    </aside></div>`, null, (rer) => { $('#page').onclick = (e) => { const b = e.target.closest('[data-unfeat]'); if (!b) return; D.initiatives.find((i) => String(i.id) === b.dataset.unfeat).featured = false; save('أُلغي التمييز'); rer(); }; });
+  }
+  function vGeneral() {
+    const S_ = D.site; const tab = genTab;
+    const panels = [
+      () => `<div class="set-row"><div><h4>اسم الموقع</h4><p>يظهر في عنوان المتصفح ونتائج البحث.</p></div><div class="form cols">${fld('brand.name', 'بالعربية', S_.brand.name)}${fld('brand.nameEn', 'بالإنجليزية', S_.brand.nameEn, { dir: 'ltr' })}</div></div>
+        <div class="set-row"><div><h4>الشعار</h4><p>نسخة للخلفية الفاتحة وأخرى للداكنة.</p></div><div class="form">${imgPick('brand.logo', 'خلفية فاتحة', S_.brand.logo)}${imgPick('brand.logoLight', 'خلفية داكنة', S_.brand.logoLight)}</div></div>
+        <div class="set-row"><div><h4>الجهة المنفذة</h4><p>تظهر في الواجهة والتذييل.</p></div><div class="form cols">${fld('brand.org', 'الاسم', S_.brand.org)}${fld('brand.orgUrl', 'الرابط', S_.brand.orgUrl, { dir: 'ltr' })}</div></div>`,
+      () => `<div class="set-row"><div><h4>نص «من نحن»</h4><p>كل سطر فقرة. الفقرة الأولى تظهر أيضًا في التذييل.</p></div>${area('about.text', '', S_.about.text, { t: 'lines', rows: 8 })}</div>
+        <div class="set-row"><div><h4>الرؤية والرسالة</h4></div><div class="form">${area('about.vision', 'الرؤية', S_.about.vision, { rows: 2 })}${area('about.mission', 'الرسالة', S_.about.mission, { rows: 2 })}</div></div>
+        <div class="card-b">${listCard('supportWays', S_.supportWays, [['title', 'طريقة الدعم'], ['text', 'الوصف', { ta: 1 }], ['icon', 'الأيقونة']], { title: '', text: '', icon: 'hands' }, 'طرق التعاون (صفحة ادعم البنك)', { cols: '1fr 2fr 1fr' })}</div>`,
+      () => `<div class="set-row"><div><h4>بيانات التواصل</h4><p>تظهر في التذييل وصفحة «تواصل معنا».</p></div><div class="form cols">${fld('contact.phone', 'الهاتف', S_.contact.phone, { dir: 'ltr' })}${fld('contact.ibEmail', 'بريد البنك', S_.contact.ibEmail, { dir: 'ltr' })}${fld('contact.email', 'بريد المنتدى', S_.contact.email, { dir: 'ltr' })}</div></div>
+        <div class="card-b grid g2">${listCard('contact.offices', S_.contact.offices, [['city', 'المدينة'], ['address', 'العنوان']], { city: '', address: '' }, 'المكاتب', { cols: '1fr 2fr' })}${listCard('contact.social', S_.contact.social, [['name', 'المنصة'], ['url', 'الرابط', { dir: 'ltr' }]], { name: '', url: '' }, 'حسابات التواصل', { cols: '1fr 2fr' })}</div>`,
+      () => ['privacy', 'terms'].map((k) => `<div class="set-row" style="align-items:start"><div><h4>${esc(S_.legal[k].title)}</h4><p>آخر تحديث ${fmtDate(S_.legal[k].updated)}</p></div><div class="form">${fld(`legal.${k}.title`, 'العنوان', S_.legal[k].title)}${fld(`legal.${k}.updated`, 'آخر تحديث', S_.legal[k].updated, { type: 'date' })}${area(`legal.${k}.content`, 'المحتوى (HTML)', S_.legal[k].content, { code: true, rows: 10 })}</div></div>`).join(''),
+    ];
+    return siteView('general', () => `<section class="card"><div class="tabs" style="--gc:var(--yellow)">${['الهوية', 'من نحن', 'التواصل', 'الصفحات القانونية'].map((l, k) => `<button data-panel="${k}" aria-selected="${k === tab}">${l}</button>`).join('')}</div>${panels[tab]()}</section>`, null,
+      () => { $$('[data-panel]').forEach((b) => { b.onclick = () => { genTab = +b.dataset.panel; route(); }; }); });
+  }
+  function vForms() {
+    const F = D.site.submit;
+    return siteView('forms', () => `<section class="card">
+      <div class="set-row"><div><h4>رابط استقبال الطلبات</h4><p>بدونه يُحفظ الطلب في متصفح المتقدّم فقط ويُعرض عليه إرسال نسخة بالبريد. يقبل أي خدمة تستقبل JSON مثل Formspree أو Google Apps Script.</p></div>${fld('forms.endpoint', 'الرابط', D.site.forms.endpoint, { dir: 'ltr', ph: 'https://formspree.io/f/xxxx' })}</div>
+      <div class="set-row"><div><h4>عنوان الصفحة ومقدمتها</h4></div><div class="form">${fld('submit.title', 'العنوان', F.title)}${area('submit.intro', 'المقدمة', F.intro, { rows: 2 })}</div></div>
+      <div class="set-row" style="align-items:start"><div><h4>المجالات والفئات</h4><p>خيارات تظهر للمتقدّم. كل سطر خيار.</p></div><div class="form cols">${area('submit.domains', 'المجالات', F.domains, { t: 'lines', rows: 9 })}${area('submit.audiences', 'الفئات', F.audiences, { t: 'lines', rows: 9 })}</div></div>
+      <div class="set-row" style="align-items:start"><div><h4>الموافقة المستنيرة</h4><p>يجب أن يوافق المتقدّم عليها قبل الإرسال.</p></div>${area('submit.consent', 'البنود', F.consent, { t: 'lines', rows: 6 })}</div></section>
+      <div class="grid g2" style="margin-top:18px">${listCard('submit.steps', F.steps, [['title', 'الخطوة'], ['text', 'الوصف']], { title: '', text: '' }, 'خطوات التقديم')}${listCard('submit.faq', F.faq, [['q', 'السؤال'], ['a', 'الجواب', { ta: 1 }]], { q: '', a: '' }, 'الأسئلة الشائعة')}</div>`,
+      () => [[F.domains.length, 'مجالًا'], [F.audiences.length, 'فئة'], [D.site.forms.endpoint ? 'متصل' : 'غير متصل', 'استقبال الطلبات']]);
+  }
 
-  /* ====================== مكتبة الوسائط ====================== */
+  /* ====================== الوسائط ====================== */
   function allMedia() {
-    const m = new Map();
-    const add = (p, where) => { if (!p || typeof p !== 'string') return; if (!m.has(p)) m.set(p, []); m.get(p).push(where); };
+    const m = new Map(); const add = (p, w) => { if (!p || typeof p !== 'string') return; if (!m.has(p)) m.set(p, []); m.get(p).push(w); };
     D.initiatives.forEach((i) => { add(i.cover, i.title); (i.gallery || []).forEach((g) => add(g, i.title)); (i.team || []).forEach((t) => add(t.photo, i.title)); });
     D.posts.forEach((p) => { add(p.cover, p.title); (p.content.match(/src="([^"]+)"/g) || []).forEach((s) => add(s.slice(5, -1), p.title)); });
     D.site.partners.forEach((p) => add(p.logo, 'الشركاء')); D.site.about.images.forEach((p) => add(p, 'من نحن')); add(D.site.heroImages[0], 'الرئيسية');
     return m;
   }
-  function media() {
-    const m = allMedia();
-    view.innerHTML = `<div class="toolbar"><input class="in grow" id="q" type="search" placeholder="ابحث باسم الملف أو المبادرة…"><button class="btn pri" id="up">${icon('image', 'i')} رفع صور</button></div>
-      <p class="muted small">${m.size} صورة مستخدمة في الموقع</p><div class="media-grid" id="grid"></div>`;
-    const render = (q = '') => {
-      $('#grid').innerHTML = [...m.entries()].filter(([p, w]) => !q || (p + w.join()).includes(q)).map(([p, w]) => `<figure><img src="${esc(src(p))}" alt="" loading="lazy"><figcaption><span title="${esc(w[0])}">${esc(p.startsWith('data:') ? 'صورة مضمّنة' : p.split('/').pop())}</span><button class="btn sm icon" data-copy="${esc(p.startsWith('data:') ? '' : p)}" title="نسخ المسار">${icon('link', 'i')}</button></figcaption></figure>`).join('');
+  function vMedia() {
+    const m = allMedia(); const inl = [...m.keys()].filter((p) => p.startsWith('data:')).length;
+    const html = hero('media', `<button class="btn primary" id="up">${svg('upload')}رفع صور</button>`, [[fmt(m.size), 'صورة مستخدمة'], [inl, 'مضمّنة في المسودة (لم تُرفع كملف)']]) + `
+    <section class="card" style="margin-bottom:16px"><div class="toolbar" style="border:0"><div class="seg" id="segm"><button aria-pressed="true" data-f="">الكل</button><button aria-pressed="false" data-f="ini">المبادرات</button><button aria-pressed="false" data-f="team">صور الفرق</button><button aria-pressed="false" data-f="other">أخرى</button></div><label class="field grow">${svg('search')}<span class="sr">بحث</span><input id="q" placeholder="ابحث باسم الملف أو المبادرة…"></label></div></section>
+    <div class="media-grid" id="grid"></div>`;
+    const after = () => {
+      const st = { q: '', f: '' }; const teamSet = new Set(D.initiatives.flatMap((i) => (i.team || []).map((t) => t.photo)));
+      const iniSet = new Set(D.initiatives.flatMap((i) => [i.cover, ...(i.gallery || [])]));
+      const render = () => {
+        $('#grid').innerHTML = `<button class="drop" id="up2" style="min-block-size:200px">${svg('upload', 'width="28" height="28"')}<div><b style="color:var(--ink)">ارفع صورًا</b><br><small>تُصغّر تلقائيًا إلى 1600px</small></div></button>` + [...m.entries()].filter(([p, w]) => (!st.q || (p + w.join()).includes(st.q)) && (!st.f || (st.f === 'team' ? teamSet.has(p) : st.f === 'ini' ? iniSet.has(p) : !teamSet.has(p) && !iniSet.has(p)))).slice(0, 400).map(([p, w]) =>
+          `<figure class="m-item"><img src="${esc(src(p))}" alt="" loading="lazy"><figcaption><b title="${esc(p)}">${esc(p.startsWith('data:') ? 'صورة مضمّنة' : p.split('/').pop())}</b><span class="muted">${w.length === 1 ? esc(w[0]).slice(0, 44) : `مستخدمة في ${w.length} مواضع`}</span><button class="btn sm" data-copy="${esc(p.startsWith('data:') ? '' : p)}" style="justify-self:start">${svg('copy')}نسخ المسار</button></figcaption></figure>`).join('');
+      };
+      const up = async () => { const fs = await pickFile(true); for (const f of fs) { try { const p = await uploadImage(f); m.set(p, ['مرفوعة الآن']); } catch (err) { toast(err.message, null, true); } } render(); };
+      $('#up').onclick = up;
+      $('#grid').addEventListener('click', (e) => { if (e.target.closest('#up2')) up(); const c = e.target.closest('[data-copy]'); if (c && c.dataset.copy) { if (navigator.clipboard) navigator.clipboard.writeText(c.dataset.copy); toast('نُسخ المسار'); } });
+      $('#q').oninput = (e) => { st.q = e.target.value; render(); };
+      $('#segm').onclick = (e) => { const b = e.target.closest('button'); if (!b) return; st.f = b.dataset.f; $$('#segm button').forEach((x) => x.setAttribute('aria-pressed', x === b)); render(); };
+      render();
     };
-    $('#q').oninput = (e) => render(e.target.value);
-    $('#grid').onclick = (e) => { const c = e.target.closest('[data-copy]'); if (c && c.dataset.copy) { navigator.clipboard && navigator.clipboard.writeText(c.dataset.copy); toast('تم نسخ المسار'); } };
-    $('#up').onclick = async () => { const fs = await pickFile(); for (const f of fs) { try { const p = await uploadImage(f); m.set(p, ['مرفوعة الآن']); } catch (err) { toast(err.message, true); } } render(); };
-    render();
+    return [html, after];
   }
   function mediaPicker() {
     return new Promise((res) => {
-      const m = allMedia();
-      const bg = document.createElement('div'); bg.className = 'drawer-bg open';
-      const dr = document.createElement('aside'); dr.className = 'drawer open';
-      dr.innerHTML = `<div class="row between" style="margin-bottom:12px"><h2>اختر صورة</h2><button class="btn icon" data-x>${icon('x', 'i')}</button></div><div class="media-grid">${[...m.keys()].filter((p) => !p.startsWith('data:')).map((p) => `<figure style="cursor:pointer" data-p="${esc(p)}"><img src="${esc(src(p))}" alt="" loading="lazy"></figure>`).join('')}</div>`;
-      document.body.append(bg, dr);
-      const done = (v) => { bg.remove(); dr.remove(); res(v); };
-      bg.onclick = () => done(null);
-      dr.onclick = (e) => { if (e.target.closest('[data-x]')) done(null); const f = e.target.closest('[data-p]'); if (f) done(f.dataset.p); };
+      const m = allMedia(); const dr = $('#picker');
+      dr.querySelector('.sheet-b').innerHTML = `<div class="media-grid" style="inline-size:100%">${[...m.keys()].filter((p) => !p.startsWith('data:')).map((p) => `<figure class="m-item pick" data-pp="${esc(p)}" tabindex="0"><img src="${esc(src(p))}" alt="" loading="lazy"><figcaption><b>${esc(p.split('/').pop())}</b></figcaption></figure>`).join('')}</div>`;
+      dr.classList.add('open');
+      const done = (v) => { dr.classList.remove('open'); dr.onclick = null; dr.onkeydown = null; res(v); };
+      dr.onclick = (e) => { if (e.target.closest('[data-close]')) done(null); const f = e.target.closest('[data-pp]'); if (f) done(f.dataset.pp); };
+      dr.onkeydown = (e) => { if (e.key === 'Enter') { const f = e.target.closest('[data-pp]'); if (f) done(f.dataset.pp); } };
     });
   }
 
+  /* ====================== الطلبات ====================== */
+  function vSubmissions(openId) {
+    let cur = openId || (SUBS[0] && SUBS[0].id);
+    const imp = () => { const i = document.createElement('input'); i.type = 'file'; i.accept = '.json,application/json'; i.onchange = async () => { try { const arr = [].concat(JSON.parse(await i.files[0].text())); const ids = new Set(SUBS.map((s) => s.id)); let n = 0; arr.forEach((s) => { if (s && s.title && !ids.has(s.id)) { s.id = s.id || 'S' + uid().toString(36); s.status = SUB[s.status] ? s.status : 'new'; s.members = s.members || []; SUBS.unshift(s); n++; } }); saveSubs(); toast(`استُورد ${n} طلب`); route(); } catch (err) { toast('ملف غير صالح', null, true); } }; i.click(); };
+    const csv = () => {
+      const cols = ['id', 'receivedAt', 'status', 'form', 'title', 'domains', 'location', 'duration', 'audiences', 'budget', 'problem', 'goals', 'activities', 'access', 'contact_name', 'contact_phone', 'contact_email', 'team', 'notes'];
+      const rows = SUBS.map((s) => cols.map((c) => { const m0 = (s.members || [])[0] || {}; let v = c === 'contact_name' ? m0.name : c === 'contact_phone' ? m0.phone : c === 'contact_email' ? m0.email : c === 'team' ? (s.members || []).map((m) => m.name).join(' | ') : c === 'status' ? (SUB[s.status] || [s.status])[0] : s[c]; v = Array.isArray(v) ? v.join('، ') : v == null ? '' : String(v); return '"' + v.replace(/"/g, '""') + '"'; }).join(','));
+      download('initiatives-bank-submissions.csv', '﻿' + [cols.join(','), ...rows].join('\n'), 'text/csv');
+    };
+    const html = () => hero('submissions', `<button class="btn" id="imp">${svg('upload')}استيراد JSON</button><button class="btn" id="csv" ${SUBS.length ? '' : 'disabled'}>${svg('download')}تصدير CSV</button>`,
+      Object.entries(SUB).map(([k, [l]]) => [SUBS.filter((s) => s.status === k).length, l])) + `
+      <div class="note">${svg('lock', 'width="16" height="16"')}<div>الطلبات فيها أسماء أعضاء الفرق وهواتفهم، لذلك تُحفظ على هذا الجهاز فقط ولا تُنشر مع بيانات الموقع. اسحب البطاقة بين الأعمدة لتغيير مرحلتها.</div></div>
+      ${SUBS.length ? `<div class="grid g-main"><div class="kanban">${Object.entries(SUB).map(([k, [l, c]]) => { const arr = SUBS.filter((s) => s.status === k); return `<div class="col" style="--c:${c}" data-col="${k}"><h4><i></i>${l}<span>${arr.length}</span></h4>${arr.map((s) => `<button class="app-card" draggable="true" data-id="${esc(s.id)}" aria-pressed="${s.id === cur}"><b>${esc(s.title)}</b><small>${esc(s.location || '')}</small><div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;gap:6px"><span class="tag">${s.form === 'pwd' ? 'ذوو الإعاقة' : 'عام'}</span><small>${fmtDate((s.receivedAt || '').slice(0, 10))}</small></div></button>`).join('') || '<div class="ghost">اسحب طلبًا هنا</div>'}</div>`; }).join('')}</div>
+        <aside class="card card-b panel" id="detail"></aside></div>`
+        : `<section class="card empty">${svg('inbox', 'width="34" height="34"')}<h3>لا توجد طلبات على هذا الجهاز</h3><p>تصل الطلبات هنا عند تقديمها من هذا المتصفح، أو باستيراد ملف من خدمة الاستقبال المضبوطة في «نموذج قدّم فكرتك».</p><a class="btn" href="#forms">ضبط الاستقبال</a></section>`}`;
+    const after = () => {
+      const page = $('#page'); const rer = () => { page.innerHTML = `<div class="view">${html()}</div>`; detail(); };
+      const detail = () => {
+        const s = SUBS.find((x) => x.id === cur); const box = $('#detail'); if (!box) return; if (!s) { box.innerHTML = '<div class="empty">اختر طلبًا</div>'; return; }
+        const c = (s.members && s.members[0]) || {};
+        box.innerHTML = `<div style="display:flex;gap:12px;align-items:center;margin-bottom:14px"><span class="avatar" style="inline-size:46px;block-size:46px;background:${SUB[s.status][1]}">${esc((c.name || '؟').trim()[0])}</span><div style="min-inline-size:0"><h4 style="margin:0">${esc(s.title)}</h4><small class="muted">${esc(c.name || '')} · رقم الطلب <span dir="ltr">${esc(s.id)}</span></small></div></div>
+          <div class="seg" style="margin-bottom:14px">${Object.entries(SUB).map(([k, [l]]) => `<button data-move="${k}" aria-pressed="${s.status === k}">${l}</button>`).join('')}</div>
+          <dl class="dl"><dt>النموذج</dt><dd>${s.form === 'pwd' ? 'مبادرات ذوي الإعاقة' : 'عام'}</dd><dt>المجالات</dt><dd>${esc((s.domains || []).join('، '))}</dd><dt>الفئات</dt><dd>${esc((s.audiences || []).join('، '))}</dd><dt>المكان</dt><dd>${esc(s.location)}</dd><dt>المدة</dt><dd>${esc(s.duration)}</dd><dt>الميزانية</dt><dd>${esc(s.budget)}</dd></dl>
+          ${[['المشكلة', s.problem], ['الأهداف', s.goals], ['الأنشطة', s.activities], ['المواءمة', s.access]].filter((x) => x[1]).map(([l, v]) => `<div class="f" style="margin-top:12px"><span>${l}</span><p style="margin:0;font-size:13.5px;color:var(--ink-2);line-height:1.8;white-space:pre-wrap">${esc(v)}</p></div>`).join('')}
+          <div class="f" style="margin-top:12px"><span>الفريق</span><ul class="feed" style="font-size:13px">${(s.members || []).map((m, k) => `<li><span class="avatar" style="inline-size:24px;block-size:24px;font-size:10px">${k + 1}</span><div><b>${esc(m.name)}</b><time dir="ltr" style="text-align:end">${esc(m.phone)} · ${esc(m.email)}</time></div></li>`).join('')}</ul></div>
+          <label class="f" style="margin-top:10px"><span>ملاحظات الفريق <small>لا تصل للمتقدّم</small></span><textarea class="in" id="notes" rows="2">${esc(s.notes || '')}</textarea></label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px"><button class="btn primary" id="toInit">${svg('spark')}إلى مبادرة</button><button class="btn" id="toIdea">${svg('bulb')}إلى بنك الأفكار</button>
+            <a class="btn" href="mailto:${esc(c.email || '')}?subject=${encodeURIComponent('بنك المبادرات: ' + s.title)}">${svg('mail')}مراسلة</a><button class="btn danger" id="rmS">${svg('trash')}حذف</button></div>
+          <div class="trans" style="margin-top:14px;font-size:12.5px;display:block"><b style="font-weight:500">خصوصية الطلب</b><div class="muted" style="margin-top:4px">استُلم ${esc((s.receivedAt || '').replace('T', ' ').slice(0, 16))} · وافق المتقدّم على شروط جمع البيانات</div></div>`;
+      };
+      page.addEventListener('click', (e) => {
+        const t0 = e.target.closest('button'); if (t0 && t0.id === 'imp') return imp(); if (t0 && t0.id === 'csv') return csv();
+        const card = e.target.closest('.app-card'); if (card) { cur = card.dataset.id; $$('.app-card').forEach((x) => x.setAttribute('aria-pressed', x === card)); return detail(); }
+        const s = SUBS.find((x) => x.id === cur); const t = t0; if (!t || !s) return;
+        if (t.dataset.move) { s.status = t.dataset.move; saveSubs(); log(`نقل الطلب «${s.title}» إلى ${SUB[s.status][0]}`); return rer(); }
+        if (t.id === 'rmS') { const k = SUBS.indexOf(s); SUBS.splice(k, 1); saveSubs(); cur = SUBS[0] && SUBS[0].id; rer(); return toast('حُذف الطلب', () => { SUBS.splice(k, 0, s); saveSubs(); cur = s.id; rer(); }); }
+        if (t.id === 'toIdea') { D.ideas.unshift({ id: uid(), title: s.title, summary: (s.problem || '').slice(0, 260), domains: s.domains || [], location: s.location || '', status: 'draft', fromSubmission: s.id }); save('أُضيفت إلى بنك الأفكار كمسودة — بلا بيانات شخصية'); log(`حوّل «${s.title}» إلى فكرة`); }
+        if (t.id === 'toInit') {
+          const i = newInitiative(); i.title = s.title; i.summary = (s.problem || '').slice(0, 220); i.location = s.location || ''; i.themes = s.domains || []; i.audience = (s.audiences || []).join('، ');
+          i.blocks[1].paragraphs = (s.problem || '').split('\n').filter(Boolean); i.blocks[3].items = (s.goals || '').split('\n').filter(Boolean); i.blocks[4].paragraphs = (s.activities || '').split('\n').filter(Boolean);
+          D.initiatives.unshift(i); s.status = 'accepted'; saveSubs(); save(); log(`حوّل الطلب «${s.title}» إلى مبادرة`); location.hash = '#initiative/' + i.id;
+        }
+      });
+      page.addEventListener('input', (e) => { if (e.target.id === 'notes') { const s = SUBS.find((x) => x.id === cur); s.notes = e.target.value; IB.safeSet(SUBS_KEY, JSON.stringify(SUBS)); } });
+      page.addEventListener('dragstart', (e) => { const c = e.target.closest('.app-card'); if (c) e.dataTransfer.setData('text/plain', c.dataset.id); });
+      page.addEventListener('dragover', (e) => { const col = e.target.closest('[data-col]'); if (col) { e.preventDefault(); $$('.col').forEach((x) => x.classList.toggle('over', x === col)); } });
+      page.addEventListener('drop', (e) => { const col = e.target.closest('[data-col]'); if (!col) return; e.preventDefault(); const s = SUBS.find((x) => x.id === e.dataTransfer.getData('text/plain')); if (s && s.status !== col.dataset.col) { s.status = col.dataset.col; cur = s.id; saveSubs(); log(`نقل الطلب «${s.title}» إلى ${SUB[s.status][0]}`); toast(`نُقل إلى «${SUB[s.status][0]}»`); } rer(); });
+      detail();
+    };
+    return [html(), after];
+  }
+
   /* ====================== النشر ====================== */
-  function siteJS(data) { return '/* بيانات موقع بنك المبادرات — يُولَّد ويُحدَّث من لوحة التحكم */\nwindow.IB_DATA = ' + JSON.stringify(data, null, 1) + ';\n'; }
-  function exportData() { const o = clone(D); o.generatedAt = new Date().toISOString().slice(0, 10); delete o.submissions; o.initiatives.forEach(syncDerived); return o; }
+  const siteJS = (d) => '/* بيانات موقع بنك المبادرات — يُولَّد ويُحدَّث من لوحة التحكم */\nwindow.IB_DATA = ' + JSON.stringify(d, null, 1) + ';\n';
+  const exportData = () => { const o = clone(D); o.generatedAt = new Date().toISOString().slice(0, 10); delete o.submissions; o.initiatives.forEach(syncDerived); return o; };
   function download(name, text, type) { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: type || 'application/json' })); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); }
   const b64 = (s) => btoa(unescape(encodeURIComponent(s)));
   async function ghReq(cfg, path, opt) {
@@ -560,105 +761,181 @@
     if (!r.ok && r.status !== 404) { const j = await r.json().catch(() => ({})); throw new Error(j.message || 'HTTP ' + r.status); }
     return r.status === 404 ? null : r.json();
   }
-  async function ghPut(cfg, path, contentB64, message) {
+  async function ghPut(cfg, path, content, message) {
     const cur = await ghReq(cfg, path);
-    return ghReq(cfg, path, { method: 'PUT', headers: { Authorization: 'Bearer ' + cfg.token, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json' }, body: JSON.stringify({ message, content: contentB64, branch: cfg.branch, sha: cur ? cur.sha : undefined }) });
+    return ghReq(cfg, path, { method: 'PUT', headers: { Authorization: 'Bearer ' + cfg.token, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json' }, body: JSON.stringify({ message, content, branch: cfg.branch, sha: cur ? cur.sha : undefined }) });
   }
-  function diffSummary() {
-    const c = (a, b, key) => { const A = new Map(a.map((x) => [String(x.id), JSON.stringify(x)])); const B = new Map(b.map((x) => [String(x.id), JSON.stringify(x)])); let add = 0, mod = 0, del = 0; A.forEach((v, k) => { if (!B.has(k)) add++; else if (B.get(k) !== v) mod++; }); B.forEach((v, k) => { if (!A.has(k)) del++; }); return `${key}: ${add} جديد، ${mod} معدّل، ${del} محذوف`; };
-    return [c(D.initiatives, PUB.initiatives, 'المبادرات'), c(D.posts, PUB.posts, 'الأخبار'), c(D.ideas || [], PUB.ideas || [], 'الأفكار'), 'محتوى الموقع: ' + (JSON.stringify(D.site) === JSON.stringify(PUB.site) ? 'بدون تغيير' : 'معدّل')];
+  function diff() {
+    const c = (a, b) => { const A = new Map(a.map((x) => [String(x.id), JSON.stringify(x)])); const B = new Map(b.map((x) => [String(x.id), JSON.stringify(x)])); let add = 0, mod = 0, del = 0; A.forEach((v, k) => { if (!B.has(k)) add++; else if (B.get(k) !== v) mod++; }); B.forEach((v, k) => { if (!A.has(k)) del++; }); return [add, mod, del]; };
+    return [['المبادرات', 'spark', c(D.initiatives, PUB.initiatives)], ['الأخبار', 'news', c(D.posts, PUB.posts)], ['الأفكار', 'bulb', c(D.ideas, PUB.ideas || [])], ['إعدادات الموقع', 'gear', JSON.stringify(D.site) === JSON.stringify(PUB.site) ? [0, 0, 0] : [0, 1, 0]]];
   }
-  function publish() {
+  function vPublish() {
     const cfg = gh() || { owner: 'mahabuhamada', repo: 'gaza-timeline', branch: 'main', token: '' };
-    const inlined = JSON.stringify(D).match(/data:image\/[^"]+/g) || [];
-    view.innerHTML = `<div class="cols c2">
-      <div class="panel"><h2>ملخص التغييرات</h2><div class="sub">مقارنة المسودة بالنسخة المنشورة</div>
-        <div class="checks">${diffSummary().map((x) => `<a>${icon('check', 'i')} ${esc(x)}</a>`).join('')}</div>
-        ${inlined.length ? `<div class="note warn" style="margin-top:12px">${inlined.length} صورة مخزّنة داخل المسودة (لم تُرفع كملفات). اربط GitHub وأعد رفعها لتقليل حجم البيانات.</div>` : ''}
-        <div class="row" style="margin-top:16px"><button class="btn blue" id="pv">${icon('link', 'i')} معاينة الموقع بالمسودة</button><button class="btn danger" id="reset">تجاهل المسودة</button></div></div>
-      <div class="panel"><h2>النشر إلى GitHub</h2><div class="sub">يحدّث ملف data/site-data.js في المستودع، وينشره GitHub Pages تلقائيًا.</div>
-        <div class="f g2">
-          <div class="fld"><label>المالك</label><input class="in" id="gOwner" dir="ltr" value="${esc(cfg.owner)}"></div>
-          <div class="fld"><label>المستودع</label><input class="in" id="gRepo" dir="ltr" value="${esc(cfg.repo)}"></div>
-          <div class="fld"><label>الفرع</label><input class="in" id="gBranch" dir="ltr" value="${esc(cfg.branch)}"></div>
-          <div class="fld"><label>رمز الوصول (Fine-grained token)</label><input class="in" id="gToken" dir="ltr" type="password" value="${esc(cfg.token)}" placeholder="github_pat_…"><div class="h">صلاحية Contents: Read & Write على هذا المستودع فقط.</div></div>
-          <label class="sw full"><input type="checkbox" id="gRemember"${IB.safeGet(GH_KEY) ? ' checked' : ''}> تذكّر الرمز على هذا الجهاز (وإلا يُحذف بإغلاق المتصفح)</label>
-        </div>
-        <div class="row" style="margin-top:14px"><button class="btn" id="gSave">حفظ الإعدادات</button><button class="btn pri" id="gPub">${icon('send', 'i')} نشر الآن</button></div>
-        <div id="gMsg" style="margin-top:12px"></div></div>
-      <div class="panel"><h2>تصدير واستيراد</h2><div class="sub">للنسخ الاحتياطي أو للنشر اليدوي: ضع site-data.js داخل مجلد data</div>
-        <div class="row"><button class="btn" id="exJs">${icon('box', 'i')} تنزيل site-data.js</button><button class="btn" id="exJson">تنزيل JSON</button><button class="btn" id="imJson">استيراد JSON</button></div></div>
-      <div class="panel"><h2>عن الأمان</h2><div class="sub">&nbsp;</div><p class="small muted" style="margin:0">لوحة التحكم صفحة ثابتة: أي شخص يفتحها يرى نسخة من البيانات العامة فقط. الحماية الحقيقية هي رمز GitHub، فبدونه لا يمكن تعديل الموقع المنشور. لا تشارك الرمز، واستخدم رمزًا محدود الصلاحية بمستودع واحد.</p></div>
+    const inl = (JSON.stringify(D).match(/data:image\/[^"]+/g) || []).length; const d = diff(); const any = dirty();
+    const html = hero('publish', `<button class="btn" id="pvsite">${svg('eye')}معاينة الموقع بالمسودة</button>`, [[any ? 'نعم' : 'لا', 'تغييرات غير منشورة'], [inl, 'صور مضمّنة لم تُرفع']]) + `
+    <div class="grid g2">
+      <section class="card"><div class="card-h"><h3>ما الذي سيتغيّر</h3><span class="end"><span class="pill ${any ? 'st-review' : 'st-pub'}">${any ? 'المسودة تختلف عن الموقع' : 'متزامن'}</span></span></div>
+        <table class="table"><thead><tr><th>القسم</th><th>جديد</th><th>معدّل</th><th>محذوف</th></tr></thead><tbody>${d.map(([l, i, [a, m, x]]) => `<tr><td><span style="display:inline-flex;gap:8px;align-items:center">${svg(i, 'width="16" height="16"')}${l}</span></td><td>${a || '—'}</td><td>${m || '—'}</td><td>${x || '—'}</td></tr>`).join('')}</tbody></table>
+        <div class="card-b"><button class="btn danger" id="reset" ${any ? '' : 'disabled'}>${svg('trash')}تجاهل المسودة</button></div></section>
+      <section class="card"><div class="card-h"><h3 style="display:flex;gap:8px;align-items:center">${svg('github', 'width="18" height="18"')}النشر إلى GitHub</h3></div><div class="card-b form">
+        <p class="muted" style="margin:0;font-size:13px">يحدّث <code>data/site-data.js</code> في المستودع، فيظهر التحديث على GitHub Pages خلال دقيقة.</p>
+        <div class="form cols"><label class="f"><span>المالك</span><input class="in" id="gOwner" dir="ltr" value="${esc(cfg.owner)}"></label><label class="f"><span>المستودع</span><input class="in" id="gRepo" dir="ltr" value="${esc(cfg.repo)}"></label>
+        <label class="f"><span>الفرع</span><input class="in" id="gBranch" dir="ltr" value="${esc(cfg.branch)}"></label><label class="f"><span>رمز الوصول <small>Contents: Read & Write</small></span><input class="in" id="gToken" dir="ltr" type="password" value="${esc(cfg.token)}" placeholder="github_pat_…"></label></div>
+        <div class="trans"><div style="flex:1"><b style="font-weight:500">تذكّر الرمز على هذا الجهاز</b><br><small class="muted">وإلا يُحذف عند إغلاق المتصفح</small></div><button type="button" class="switch" role="switch" id="gRemember" aria-checked="${!!IB.safeGet(GH_KEY)}" aria-label="تذكر الرمز"></button></div>
+        <div style="display:flex;gap:8px"><button class="btn" id="gSave">حفظ الإعدادات</button><button class="btn primary" id="gPub">${svg('send')}نشر الآن</button></div><div id="gMsg"></div></div></section>
+      <section class="card"><div class="card-h"><h3>تصدير واستيراد</h3></div><div class="card-b form"><p class="muted" style="margin:0;font-size:13px">للنسخ الاحتياطي أو النشر اليدوي: ضع <code>site-data.js</code> داخل مجلد <code>data</code> في المستودع.</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="exJs">${svg('download')}site-data.js</button><button class="btn" id="exJson">${svg('download')}JSON</button><button class="btn" id="imJson">${svg('upload')}استيراد JSON</button></div></div></section>
+      <section class="card"><div class="card-h"><h3 style="display:flex;gap:8px;align-items:center">${svg('lock', 'width="16" height="16"')}عن الأمان</h3></div><div class="card-b"><p class="muted" style="margin:0;font-size:13.5px;line-height:1.9">اللوحة صفحة ثابتة: من يفتحها يرى البيانات العامة نفسها الموجودة في الموقع، ولا يستطيع تغيير الموقع المنشور بدون رمز GitHub. استخدم رمزًا محدود الصلاحية على هذا المستودع فقط، ولا تشاركه. طلبات المتقدّمين لا تغادر هذا الجهاز.</p></div></section>
     </div>`;
-    const readCfg = () => ({ owner: $('#gOwner').value.trim(), repo: $('#gRepo').value.trim(), branch: $('#gBranch').value.trim() || 'main', token: $('#gToken').value.trim() });
-    const storeCfg = () => { const c = readCfg(); const s = JSON.stringify(c); if ($('#gRemember').checked) { IB.safeSet(GH_KEY, s); } else { IB.safeDel(GH_KEY); try { sessionStorage.setItem(GH_KEY, s); } catch (e) { /* ignore */ } } return c; };
-    $('#gSave').onclick = () => { storeCfg(); toast('تم حفظ الإعدادات'); };
-    $('#gPub').onclick = async () => {
-      const c = storeCfg(); const msg = $('#gMsg');
-      if (!c.token) { msg.innerHTML = '<div class="note bad">أدخل رمز الوصول أولًا.</div>'; return; }
-      $('#gPub').disabled = true; msg.innerHTML = '<div class="note">جارٍ النشر…</div>';
-      try {
-        const data = exportData();
-        await ghPut(c, 'data/site-data.js', b64(siteJS(data)), 'تحديث بيانات الموقع من لوحة التحكم');
-        await ghPut(c, 'data/site-data.json', b64(JSON.stringify(data, null, 1)), 'تحديث نسخة JSON من بيانات الموقع');
-        window.IB_DATA = data; Object.assign(PUB, clone(data)); IB.safeDel(IB.DRAFT_KEY); D = clone(data); D.ideas = D.ideas || [];
-        msg.innerHTML = `<div class="note">${icon('check', 'i')} تم النشر إلى <b dir="ltr">${esc(c.owner)}/${esc(c.repo)}@${esc(c.branch)}</b>. يظهر التحديث على الموقع خلال دقيقة تقريبًا.</div>`;
-        updateStatus();
-      } catch (err) { msg.innerHTML = `<div class="note bad">فشل النشر: ${esc(err.message)}</div>`; }
-      $('#gPub').disabled = false;
+    const after = () => {
+      const readCfg = () => ({ owner: $('#gOwner').value.trim(), repo: $('#gRepo').value.trim(), branch: $('#gBranch').value.trim() || 'main', token: $('#gToken').value.trim() });
+      const store = () => { const c = readCfg(); const s = JSON.stringify(c); if ($('#gRemember').getAttribute('aria-checked') === 'true') IB.safeSet(GH_KEY, s); else { IB.safeDel(GH_KEY); try { sessionStorage.setItem(GH_KEY, s); } catch (e) { /* */ } } return c; };
+      $('#gRemember').onclick = (e) => e.currentTarget.setAttribute('aria-checked', e.currentTarget.getAttribute('aria-checked') !== 'true');
+      $('#gSave').onclick = () => { store(); toast('حُفظت إعدادات النشر'); };
+      $('#gPub').onclick = async () => {
+        const c = store(); const msg = $('#gMsg');
+        if (!c.token) { msg.innerHTML = `<div class="note bad">${svg('alert', 'width="16" height="16"')}<div>أدخل رمز الوصول أولًا.</div></div>`; return; }
+        $('#gPub').disabled = true; msg.innerHTML = '<div class="note">جارٍ النشر…</div>';
+        try {
+          const data = exportData();
+          await ghPut(c, 'data/site-data.js', b64(siteJS(data)), 'تحديث بيانات الموقع من لوحة التحكم');
+          await ghPut(c, 'data/site-data.json', b64(JSON.stringify(data, null, 1)), 'تحديث نسخة JSON من بيانات الموقع');
+          Object.keys(PUB).forEach((k) => delete PUB[k]); Object.assign(PUB, clone(data)); PUB.ideas = PUB.ideas || [];
+          IB.safeDel(IB.DRAFT_KEY); D = clone(data); log('نشر التحديثات إلى الموقع'); syncBadge();
+          msg.innerHTML = `<div class="note">${svg('check', 'width="16" height="16"')}<div>نُشر إلى <b dir="ltr">${esc(c.owner)}/${esc(c.repo)}@${esc(c.branch)}</b>. يظهر على الموقع خلال دقيقة تقريبًا.</div></div>`;
+        } catch (err) { msg.innerHTML = `<div class="note bad">${svg('alert', 'width="16" height="16"')}<div>فشل النشر: ${esc(err.message)}</div></div>`; }
+        $('#gPub').disabled = false;
+      };
+      $('#exJs').onclick = () => download('site-data.js', siteJS(exportData()), 'text/javascript');
+      $('#exJson').onclick = () => download('site-data.json', JSON.stringify(exportData(), null, 1));
+      $('#imJson').onclick = () => { const i = document.createElement('input'); i.type = 'file'; i.accept = '.json'; i.onchange = async () => { try { const o = JSON.parse(await i.files[0].text()); if (!o.site || !o.initiatives) throw new Error(); D = o; D.ideas = D.ideas || []; delete D.submissions; save('استُوردت البيانات إلى المسودة'); log('استورد ملف بيانات'); route(); } catch (e) { toast('ملف غير صالح', null, true); } }; i.click(); };
+      $('#pvsite').onclick = () => preview('index.html');
+      $('#reset').onclick = () => { const old = D; IB.safeDel(IB.DRAFT_KEY); D = clone(PUB); syncBadge(); route(); toast('استُعيدت النسخة المنشورة', () => { D = old; save(); route(); }); };
     };
-    $('#exJs').onclick = () => download('site-data.js', siteJS(exportData()), 'text/javascript');
-    $('#exJson').onclick = () => download('site-data.json', JSON.stringify(exportData(), null, 1));
-    $('#imJson').onclick = () => { const i = document.createElement('input'); i.type = 'file'; i.accept = '.json'; i.onchange = async () => { try { const o = JSON.parse(await i.files[0].text()); if (!o.site || !o.initiatives) throw new Error(); D = o; D.ideas = D.ideas || []; save(); publish(); toast('تم الاستيراد إلى المسودة'); } catch (e) { toast('ملف غير صالح', true); } }; i.click(); };
-    $('#pv').onclick = () => { IB.safeSet(IB.DRAFT_KEY, JSON.stringify(D)); IB.safeSet(IB.PREVIEW_KEY, '1'); window.open('../index.html', '_blank'); };
-    $('#reset').onclick = () => { if (!confirm('تجاهل كل التغييرات غير المنشورة؟')) return; IB.safeDel(IB.DRAFT_KEY); IB.safeDel(IB.PREVIEW_KEY); D = clone(PUB); D.ideas = D.ideas || []; updateStatus(); publish(); toast('تمت استعادة النسخة المنشورة'); };
+    return [html, after];
   }
 
-  function notFound() { view.innerHTML = '<div class="panel empty">العنصر غير موجود. <a href="#overview">العودة</a></div>'; }
+  function vLog() {
+    const html = hero('log', `<button class="btn" id="clr" ${LOG.length ? '' : 'disabled'}>${svg('trash')}مسح السجل</button>`, [[LOG.length, 'تعديل مسجّل']]) + `
+    <section class="card"><div class="card-b">${LOG.length ? `<ul class="feed">${LOG.map((l) => `<li><span class="avatar">ب</span><div>${esc(l.t)}<time>${new Date(l.at).toLocaleString('ar-u-nu-latn', { dateStyle: 'medium', timeStyle: 'short' })}</time></div></li>`).join('')}</ul>` : '<div class="empty">لا تعديلات مسجّلة على هذا الجهاز بعد.</div>'}</div></section>`;
+    return [html, () => { const b = $('#clr'); if (b) b.onclick = () => { LOG = []; IB.safeDel(LOG_KEY); route(); }; }];
+  }
 
-  /* ---------------- التوجيه ---------------- */
-  const ROUTES = {
-    overview: ['نظرة عامة', overview], initiatives: ['المبادرات', initiatives], posts: ['الأخبار والإعلانات', posts], submissions: ['طلبات «قدّم فكرتك»', submissions],
-    ideas: ['بنك الأفكار', ideas], content: ['محتوى الموقع', content], media: ['مكتبة الوسائط', media], publish: ['النشر والنسخ الاحتياطي', publish],
-  };
-  function setTop(t, crumb) { $('#ttl').textContent = t; $('#crumb').innerHTML = crumb || ''; document.title = t + ' | لوحة تحكم بنك المبادرات'; }
+  function notFound() { return `<section class="card empty"><h3>العنصر غير موجود</h3><a class="btn" href="#home">العودة للرئيسية</a></section>`; }
+
+  /* ---------- المعاينة ---------- */
+  function preview(path) {
+    IB.safeSet(IB.DRAFT_KEY, JSON.stringify(D)); IB.safeSet(IB.PREVIEW_KEY, '1');
+    $('#frame').src = '../' + path + (path.includes('?') ? '&' : '?') + 't=' + Date.now(); $('#pvOpen').href = '../' + path; $('#drawer').classList.add('open');
+  }
+
+  /* ---------- التنقل ---------- */
+  let current = 'home', genTab = 0;
+  function renderNav(active) {
+    const counts = { submissions: SUBS.filter((s) => s.status === 'new').length };
+    $('#nav').innerHTML = GROUPS.map((g) => `<div class="group" style="--gc:${g.c}">${g.id === 'main' ? '' : `<button aria-expanded="true"><i></i>${g.label}${svg('chev')}</button>`}
+      <div class="links"><div>${g.items.map((k) => `<a href="#${k}" ${active === k ? 'aria-current="page"' : ''}><span class="ic">${svg(S[k].i)}</span>${S[k].t}${counts[k] ? `<span class="count">${counts[k]}</span>` : ''}</a>`).join('')}</div></div></div>`).join('');
+  }
+  const VIEWS = { home: vHome, initiatives: vInitiatives, posts: vPosts, ideas: vIdeas, projects: vProjects, taxonomies: vTaxonomies, partners: vPartners, stories: vStories, media: vMedia, homepage: vHomepage, general: vGeneral, forms: vForms, submissions: vSubmissions, publish: vPublish, log: vLog };
   function route() {
-    const [h, q] = (location.hash.slice(1) || 'overview').split('?'); const [r, id] = h.split('/'); const params = new URLSearchParams(q || '');
-    $$('.side nav a').forEach((a) => a.classList.toggle('on', a.getAttribute('href') === '#' + ({ initiative: 'initiatives', post: 'posts' }[r] || r)));
-    $('.side').classList.remove('open');
-    const old = document.getElementById('view'); view = old.cloneNode(false); old.replaceWith(view);
-    if (r === 'initiative') return initiativeEditor(id);
-    if (r === 'post') return postEditor(id);
-    const R = ROUTES[r] || ROUTES.overview; setTop(R[0], ''); R[1](params);
-    window.scrollTo(0, 0);
+    const raw = decodeURIComponent(location.hash.slice(1)) || 'home';
+    const [k0, arg] = raw.split('/');
+    const editMap = { initiative: ['initiatives', vInitiativeEdit], post: ['posts', vPostEdit] };
+    const isEdit = !!editMap[k0];
+    const k = isEdit ? editMap[k0][0] : VIEWS[k0] ? k0 : 'home';
+    current = k;
+    const draw = () => {
+      renderNav(k);
+      let out = isEdit ? editMap[k0][1](arg) : VIEWS[k](arg);
+      if (typeof out === 'string') out = [out];
+      const [html, after, title] = out;
+      const sep = svg('left', 'width="13" height="13"');
+      $('#crumbs').innerHTML = k === 'home' ? '<b>الرئيسية</b>' : `<a href="#home">الرئيسية</a>${sep}${S[k].g.label}${sep}${isEdit ? `<a href="#${k}">${S[k].t}</a>${sep}<b id="crumbT">${esc(title || 'تحرير')}</b>` : `<b>${S[k].t}</b>`}`;
+      const old = $('#page'); const page = old.cloneNode(false); old.replaceWith(page);
+      page.innerHTML = `<div class="view">${html}</div>`;
+      if (after) after();
+      document.title = `${isEdit ? 'تحرير — ' : ''}${S[k].t} | لوحة تحكم بنك المبادرات`;
+      $('#side').classList.remove('open'); window.scrollTo({ top: 0 }); syncBadge();
+    };
+    if (document.startViewTransition && !matchMedia('(prefers-reduced-motion: reduce)').matches) document.startViewTransition(draw); else draw();
   }
 
-  // بناء الهيكل
+  /* ---------- لوحة الأوامر ---------- */
+  function cmds() {
+    return [
+      ...Object.keys(S).map((k) => ({ label: S[k].t, hint: S[k].g.label, icon: S[k].i, c: S[k].c, go: '#' + k })),
+      ...D.initiatives.map((i) => ({ label: i.title || 'مبادرة بلا عنوان', hint: 'مبادرة', icon: 'spark', c: 'var(--orange)', go: '#initiative/' + i.id })),
+      ...D.posts.map((p) => ({ label: p.title || 'خبر بلا عنوان', hint: 'خبر', icon: 'news', c: 'var(--orange)', go: '#post/' + p.id })),
+      { label: 'مبادرة جديدة', hint: 'إجراء', icon: 'plus', c: 'var(--orange)', go: '#initiative/new' },
+      { label: 'خبر جديد', hint: 'إجراء', icon: 'plus', c: 'var(--orange)', go: '#post/new' },
+      { label: 'معاينة الموقع', hint: 'إجراء', icon: 'eye', c: 'var(--blue)', run: () => preview('index.html') },
+      { label: 'تبديل الوضع الليلي', hint: 'إجراء', icon: 'moon', c: 'var(--violet)', run: () => $('#themeBtn').click() },
+    ];
+  }
+  let selI = 0, shown = [];
+  function drawPal() {
+    const q = $('#palIn').value.trim();
+    shown = cmds().filter((c) => !q || c.label.includes(q) || c.hint.includes(q)).slice(0, 9); selI = Math.max(0, Math.min(selI, shown.length - 1));
+    $('#palList').innerHTML = shown.map((c, i) => `<li role="option" aria-selected="${i === selI}" data-i="${i}" style="--gc:${c.c}"><span class="ic">${svg(c.icon)}</span><span class="l">${esc(c.label)}</span><small>${c.hint}</small></li>`).join('') || '<li class="muted">لا نتائج</li>';
+  }
+  const openPal = () => { $('#palette').classList.add('open'); $('#palIn').value = ''; selI = 0; drawPal(); $('#palIn').focus(); };
+  const closePal = () => $('#palette').classList.remove('open');
+  const runCmd = (c) => { if (!c) return; closePal(); if (c.run) c.run(); else location.hash = c.go; };
+
+  /* ---------- الهيكل ---------- */
   document.getElementById('app').innerHTML = `
-  <aside class="side" id="side">
-    <div class="logo"><img src="../${esc(D.site.brand.logoLight)}" alt="بنك المبادرات"><div><small>لوحة التحكم</small></div></div>
-    <nav aria-label="أقسام اللوحة">
-      <a href="#overview">${icon('grid', 'i')} نظرة عامة</a>
-      <div class="grp">المحتوى</div>
-      <a href="#initiatives">${icon('spark', 'i')} المبادرات</a>
-      <a href="#posts">${icon('megaphone', 'i')} الأخبار والإعلانات</a>
-      <a href="#ideas">${icon('bulb', 'i')} بنك الأفكار</a>
-      <a href="#media">${icon('image', 'i')} مكتبة الوسائط</a>
-      <div class="grp">التواصل</div>
-      <a href="#submissions">${icon('mail', 'i')} الطلبات <span class="badge" data-badge="subs" hidden></span></a>
-      <div class="grp">الإعدادات</div>
-      <a href="#content">${icon('folder', 'i')} محتوى الموقع</a>
-      <a href="#publish">${icon('send', 'i')} النشر</a>
-    </nav>
-    <div class="foot"><a href="../index.html" target="_blank" rel="noopener">${icon('link', 'i')} فتح الموقع</a><a href="https://initiativesbank.ps" target="_blank" rel="noopener">${icon('globe', 'i')} الموقع القديم</a></div>
+  <aside class="side" id="side" aria-label="القائمة الرئيسية">
+    <div class="brand"><img src="../${esc(D.site.brand.logoLight)}" alt="${esc(D.site.brand.name)}"></div>
+    <div class="brand-chip">لوحة تحكم بنك المبادرات · مبادرة من ${esc(D.site.brand.org)}</div>
+    <nav class="nav" id="nav"></nav>
+    <div class="me"><span class="avatar">ب</span><div style="min-inline-size:0"><b>فريق بنك المبادرات</b><small><a href="../index.html" target="_blank" rel="noopener">فتح الموقع ↗</a></small></div></div>
   </aside>
   <div class="main">
-    <header class="top"><button class="menu-t" id="mt" aria-label="القائمة">${icon('menu', 'i')}</button><div><div class="crumb" id="crumb"></div><h1 id="ttl"></h1></div><span class="sp"></span><span class="status" id="status"></span><a class="btn pri sm" href="#publish">${icon('send', 'i')} نشر</a></header>
-    <div class="view" id="view"></div>
+    <header class="top">
+      <button class="icon-btn menu-btn" id="menuBtn" aria-label="فتح القائمة">${svg('menu')}</button>
+      <div class="crumbs" id="crumbs"></div>
+      <button class="search" id="openPal">${svg('search', 'width="16" height="16"')}<span>ابحث عن مبادرة أو انتقل إلى قسم…</span><kbd>Ctrl K</kbd></button>
+      <a class="sync" id="sync" href="#publish"></a>
+      <button class="icon-btn" id="themeBtn" aria-label="تبديل الوضع الليلي">${svg('moon')}</button>
+    </header>
+    <main class="page" id="page" tabindex="-1"></main>
   </div>`;
-  $('#mt').onclick = () => $('#side').classList.toggle('open');
+  document.body.insertAdjacentHTML('beforeend', `
+  <div class="drawer" id="drawer" role="dialog" aria-modal="true" aria-label="معاينة"><div class="scrim" data-close></div><div class="sheet">
+    <div class="sheet-h"><b>معاينة كما سيراها الزائر</b><span class="pill st-review">مسودة</span>
+      <div class="seg" style="margin-inline-start:auto"><button aria-pressed="true" data-dev="desktop">حاسوب</button><button aria-pressed="false" data-dev="mobile">جوال</button></div>
+      <a class="icon-btn" id="pvOpen" target="_blank" rel="noopener" aria-label="فتح في نافذة">${svg('ext')}</a><button class="icon-btn" data-close aria-label="إغلاق">${svg('x')}</button></div>
+    <div class="sheet-b"><iframe class="frame" id="frame" title="معاينة الصفحة"></iframe></div></div></div>
+  <div class="drawer" id="picker" role="dialog" aria-modal="true" aria-label="اختيار صورة"><div class="scrim" data-close></div><div class="sheet">
+    <div class="sheet-h"><b>اختر صورة من المكتبة</b><button class="icon-btn" data-close aria-label="إغلاق" style="margin-inline-start:auto">${svg('x')}</button></div><div class="sheet-b"></div></div></div>
+  <div class="palette" id="palette" role="dialog" aria-modal="true" aria-label="البحث السريع"><div class="pal"><input id="palIn" placeholder="اكتب اسم مبادرة أو قسم أو إجراء…" autocomplete="off" aria-label="بحث"><ul id="palList" role="listbox"></ul>
+    <div class="foot"><span>↑↓ للتنقل</span><span>Enter للفتح</span><span>Esc للإغلاق</span></div></div></div>`);
 
-  window.addEventListener('hashchange', route);
-
-  updateStatus(); updateBadges(); route();
+  $('#openPal').onclick = openPal;
+  $('#palIn').oninput = () => { selI = 0; drawPal(); };
+  $('#palList').onclick = (e) => { const li = e.target.closest('[data-i]'); if (li) runCmd(shown[+li.dataset.i]); };
+  $('#palette').onclick = (e) => { if (e.target.id === 'palette') closePal(); };
+  $('#drawer').addEventListener('click', (e) => {
+    if (e.target.closest('[data-close]')) { $('#drawer').classList.remove('open'); $('#frame').src = 'about:blank'; }
+    const d = e.target.closest('[data-dev]'); if (d) { $$('[data-dev]').forEach((x) => x.setAttribute('aria-pressed', x === d)); $('#frame').classList.toggle('mobile', d.dataset.dev === 'mobile'); }
+  });
+  document.addEventListener('click', (e) => {
+    const gr = e.target.closest('.group > button'); if (gr) { const g = gr.parentElement; g.toggleAttribute('data-closed'); gr.setAttribute('aria-expanded', !g.hasAttribute('data-closed')); }
+    if ($('#side').classList.contains('open') && !e.target.closest('#side') && !e.target.closest('#menuBtn')) $('#side').classList.remove('open');
+  });
+  document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); openPal(); }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); save('حُفظت المسودة'); }
+    if (e.key === 'Escape') { closePal(); $$('.drawer').forEach((d) => d.classList.remove('open')); $('#side').classList.remove('open'); }
+    if ($('#palette').classList.contains('open') && shown.length) {
+      if (e.key === 'ArrowDown') { e.preventDefault(); selI = (selI + 1) % shown.length; drawPal(); }
+      if (e.key === 'ArrowUp') { e.preventDefault(); selI = (selI - 1 + shown.length) % shown.length; drawPal(); }
+      if (e.key === 'Enter') runCmd(shown[selI]);
+    }
+  });
+  try { const th = localStorage.getItem(THEME_KEY); if (th) document.documentElement.dataset.theme = th; } catch (e) { /* */ }
+  $('#themeBtn').onclick = () => { const isDark = document.documentElement.dataset.theme ? document.documentElement.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches; const d = isDark ? 'light' : 'dark'; document.documentElement.dataset.theme = d; try { localStorage.setItem(THEME_KEY, d); } catch (e) { /* */ } };
+  $('#menuBtn').onclick = (e) => { e.stopPropagation(); $('#side').classList.toggle('open'); };
+  addEventListener('hashchange', route);
+  route();
 })();
