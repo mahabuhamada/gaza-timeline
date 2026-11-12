@@ -28,7 +28,7 @@
   function initCard(i) {
     return `<article class="card reveal">
       <div class="media"><img src="${src(i.cover)}" alt="" loading="lazy">
-        <div class="badges">${i.governorate ? `<span class="pill solid">${esc(i.governorate)}</span>` : ''}</div></div>
+        <div class="badges">${i.governorate ? `<span class="gov">${esc(i.governorate)}</span>` : ''}</div></div>
       <div class="body">
         <div class="chips-row">${(i.themes || []).slice(0, 2).map((t) => `<span class="pill">${esc(t)}</span>`).join(' ')}</div>
         <h3><a href="${initUrl(i)}">${esc(i.title)}</a></h3>
@@ -54,150 +54,119 @@
 
   const statsHTML = () => `<div class="stats">${S.stats.map((s) => `<div class="stat reveal">${icon(s.icon, 'ic')}<div class="num" data-count="${s.value}" data-plus="1">0</div><div class="lbl">${esc(s.label)}</div></div>`).join('')}</div>`;
   const valuesHTML = () => `<div class="values">${S.values.map((v) => `<div class="value reveal"><div class="ic">${icon(v.icon)}</div><h3>${esc(v.title)}</h3><p>${esc(v.text)}</p></div>`).join('')}</div>`;
-  const partnersHTML = () => `<div class="partners">${S.partners.map((p) => `<a class="partner reveal" href="${esc(p.url)}" target="_blank" rel="noopener" title="${esc(p.name)}"><img src="${src(p.logo)}" alt="${esc(p.name)}" loading="lazy"></a>`).join('')}</div>`;
-  const ctaHTML = () => `<div class="cta reveal"><div><h2>عندك فكرة تخدم مجتمعك؟</h2><p>${esc(S.submit.intro)}</p></div><a class="btn btn-light" href="${url('submit.html')}">${icon('bulb')} قدّم فكرتك الآن</a></div>`;
+  const partnersHTML = () => `<div class="partners">${S.partners.map((p) => `<a class="partner reveal" href="${esc(p.url)}" target="_blank" rel="noopener" title="${esc(p.name)}"><span class="pf"><span><img src="${src(p.logo)}" alt="${esc(p.name)}" loading="lazy"></span></span><small>${esc(p.role)}</small></a>`).join('')}</div>`;
+  const ctaHTML = () => ''; // دعوة التقديم صارت أعلى التذييل في كل الصفحات
 
   /* ====================== الرئيسية ====================== */
   function home() {
     setTitle('', S.brand.intro);
-    const feat = INITS.filter((i) => i.featured).concat(INITS.filter((i) => !i.featured)).slice(0, 5);
+    const feat = INITS.filter((i) => i.featured).concat(INITS.filter((i) => !i.featured));
     const themes = count(INITS, (i) => i.themes);
-    const topThemes = sortedKeys(themes).slice(0, 4);
-    const projects = count(INITS, (i) => i.project);
-    const pk = sortedKeys(projects).slice(0, 2);
-    const latest = [...POSTS.map((p) => ({ t: 'post', d: p.date, x: p })), ...INITS.map((i) => ({ t: 'init', d: i.date, x: i }))].sort((a, b) => b.d.localeCompare(a.d)).slice(0, 4);
-    const stats = S.stats;
-    const statCls = ['c-orange', 'c-yellow', 'c-blue'];
+    const themeKeys = sortedKeys(themes).slice(0, 8);
+    const themeIcon = { 'دعم نفسي وترفيهي': 'people', 'صحة وتوعية': 'bulb', 'فنون وثقافة': 'image', 'استجابة إنسانية': 'hands', 'تمكين اقتصادي': 'rocket', 'دمج ذوي الإعاقة': 'globe', 'رياضة': 'target', 'تعليم': 'folder' };
+    const projects = count(INITS, (i) => i.project); const pk = sortedKeys(projects).slice(0, 2);
     const N = INITS.length || 1;
-    const pct = (f) => Math.round((INITS.filter(f).length / N) * 1000) / 10;
+    const pct = (f) => Math.round((INITS.filter(f).length / N) * 100);
     const ind = [
-      [pct((i) => /إعاقة/.test(i.audience + (i.audienceGroups || []).join() + (i.themes || []).join())), 'من المبادرات تستهدف الأشخاص ذوي الإعاقة أو تدمجهم', 'تعمل على المواءمة والوصول بكرامة وإشراك الأشخاص ذوي الإعاقة في الأنشطة.'],
-      [pct((i) => /مخيم|إيواء|نزوح|نازح/.test(i.location + i.audience + i.summary)), 'نُفذت في مخيمات النزوح ومراكز الإيواء', 'وصلت المبادرات إلى الناس حيث يعيشون اليوم: الخيام ومراكز الإيواء.'],
-      [pct((i) => (i.themes || []).includes('دعم نفسي وترفيهي')), 'تقدّم دعمًا نفسيًا ومساحات آمنة', 'مساحات للتفريغ واستعادة التوازن للأطفال واليافعين والشباب.'],
-      [pct((i) => (i.gallery || []).length > 0 || (i.team || []).length > 0), 'موثّقة بالصور وبأسماء فرقها', 'كل مبادرة موثّقة بقصتها وصورها وأسماء المبادرين الذين نفّذوها.'],
+      ['دامجة لذوي الإعاقة', pct((i) => /إعاقة/.test(i.audience + (i.audienceGroups || []).join() + (i.themes || []).join()))],
+      ['في المخيمات والإيواء', pct((i) => /مخيم|إيواء|نزوح|نازح/.test(i.location + i.audience + i.summary))],
+      ['دعم نفسي ومساحات آمنة', pct((i) => (i.themes || []).includes('دعم نفسي وترفيهي'))],
+      ['صحة وتوعية', pct((i) => (i.themes || []).includes('صحة وتوعية'))],
+      ['موثّقة بالصور والفرق', pct((i) => (i.gallery || []).length > 0 || (i.team || []).length > 0)],
     ];
-    const ticker = ['شباب يصنعون الواقع', 'من الفكرة إلى الأثر', 'مساحات آمنة للجميع', 'الوصول بكرامة', 'مبادرات يقودها الشباب', 'نبادر لنصنع غدًا أفضل'];
-    const tIcons = ['spark', 'bulb', 'hands', 'people', 'rocket', 'globe'];
-    const tickerRow = ticker.map((t, k) => `<span><i>${icon(tIcons[k % tIcons.length])}</i>${esc(t)}</span>`).join('');
-    const partnerSats = S.partners.slice(0, 6);
-    const angles = [270, 330, 30, 90, 150, 210];
-    const trackColors = ['t1', 't2'];
-    const ghost = (k) => (/A4A|الوصول/.test(k) ? 'A4A' : /Youth/i.test(k) ? 'YOUTH HUB' : 'IB');
+    // رادار خماسي
+    const R = 120, ang = (k) => (-90 + k * 72) * Math.PI / 180, P = (k, r) => [Math.cos(ang(k)) * r, Math.sin(ang(k)) * r];
+    const ring = (f) => [0, 1, 2, 3, 4].map((k) => P(k, R * f).map((v) => v.toFixed(1)).join(',')).join(' ');
+    const area = ind.map(([, v], k) => P(k, R * Math.max(v, 4) / 100).map((x) => x.toFixed(1)).join(',')).join(' ');
+    const radar = `<svg class="radar" viewBox="-230 -175 460 350" style="direction:ltr" role="img" aria-label="مؤشرات أثر المبادرات">
+      ${[.25, .5, .75, 1].map((f) => `<polygon class="grid-l" points="${ring(f)}"/>`).join('')}
+      ${[0, 1, 2, 3, 4].map((k) => { const [x, y] = P(k, R); return `<line class="axis" x1="0" y1="0" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}"/>`; }).join('')}
+      <polygon class="area" points="${area}"/>
+      ${ind.map(([l, v], k) => { const [x, y] = P(k, R * Math.max(v, 4) / 100); const [lx, ly] = P(k, R + 26); const anc = Math.abs(lx) < 10 ? 'middle' : lx > 0 ? 'start' : 'end';
+        return `<circle class="pt" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="5"/><text x="${lx.toFixed(1)}" y="${(ly + (k === 0 ? -6 : 4)).toFixed(1)}" text-anchor="${anc}">${esc(l)}</text><text class="v" x="${lx.toFixed(1)}" y="${(ly + (k === 0 ? 10 : 20)).toFixed(1)}" text-anchor="${anc}">${v}%</text>`; }).join('')}
+    </svg>`;
+    // الكوكبة الخماسية (رؤوس الخماسي + صورة وسطى)
+    const V = [[50, 7], [93, 38], [77, 90], [23, 90], [7, 38]];
+    const imgs = feat.slice(0, 6);
+    const photos = INITS.reduce((n, i) => n + (i.gallery || []).length, 0);
+    const team = INITS.reduce((n, i) => n + (i.team || []).length, 0);
+    const govs = new Set(INITS.map((i) => i.governorate).filter(Boolean)).size;
+    const steps = [['الفكرة', 'مشكلة في مجتمعك تبحث عن حل'], ['التقديم', 'املأ نموذج «قدّم فكرتك»'], ['الدراسة', 'يراجع الفريق الطلب ويتواصل معك'], ['التنفيذ', 'دعم وتشبيك لتنفيذ المبادرة'], ['الأثر', 'توثيق القصة ونشرها في المكتبة']];
 
     main.innerHTML = `
     <section class="hero"><div class="wrap">
       <div>
-        <span class="badge"><span class="dot"></span>مبادرة من ${esc(S.brand.org)}</span>
-        <h1>نبادر اليوم..<br><span class="grad-text">لنصنع غدًا أفضل</span></h1>
-        <p class="lead">${esc(S.brand.intro)} نحوّل أفكار الشباب في قطاع غزة إلى مبادرات على الأرض، ونوثّق أثرها.</p>
+        <span class="tag-line"><i></i>مبادرة من ${esc(S.brand.org)}</span>
+        <h1>نبادر <span class="b">اليوم</span>..<br>لنصنع غدًا <span class="o">أفضل</span></h1>
+        <p class="lead">${esc(S.brand.intro)} نحوّل أفكار الشباب في قطاع غزة إلى مبادرات على الأرض، ونوثّق قصصها وأثرها.</p>
         <div class="hero-actions">
           <a class="btn btn-primary" href="${url('submit.html')}">${icon('bulb')} قدّم فكرتك</a>
-          <a class="btn btn-white" href="${url('initiatives.html')}">استكشف ${INITS.length} مبادرة ${icon('arrowL')}</a>
+          <a class="btn btn-outline" href="${url('initiatives.html')}">${icon('grid')} مكتبة المبادرات</a>
         </div>
-        <div class="hero-stats">${stats.slice(0, 3).map((s, k) => `<div><b class="${statCls[k]}" data-count="${s.value}" data-plus="1">0</b><span>${esc(s.label)}</span></div>`).join('')}</div>
+        <div class="penta-stats">${S.stats.slice(0, 3).map((s) => `<div class="pstat"><span class="pg">${icon(s.icon)}</span><div><b data-count="${s.value}" data-plus="1">0</b><span>${esc(s.label)}</span></div></div>`).join('')}</div>
       </div>
-      <div class="hero-photo">
-        <span class="deco d1"></span><span class="deco d2"></span>
-        <div class="photo-card">
-          <div class="frame">${feat.map((i, k) => `<img src="${src(i.cover)}" alt=""${k ? ' loading="lazy"' : ' class="on" fetchpriority="high"'}>`).join('')}</div>
-          <div class="cap"><span class="pill">مبادرة</span><a id="capLink" href="${initUrl(feat[0])}"><b id="capT">${esc(feat[0].title)}</b></a></div>
-        </div>
-        <div class="dots" role="tablist" aria-label="مبادرات مميزة">${feat.map((i, k) => `<button role="tab" aria-label="${esc(i.title)}" aria-current="${!k}" data-k="${k}"></button>`).join('')}</div>
+      <div class="constellation" aria-hidden="true">
+        <svg class="lines" viewBox="0 0 100 100" preserveAspectRatio="none"><polygon points="${V.map(([x, y]) => `${x},${y}`).join(' ')}" fill="none" stroke="#0561A0" stroke-width=".5" stroke-dasharray="1.6 1.2"/>${V.map(([x, y]) => `<line x1="${x}" y1="${y}" x2="50" y2="56" stroke="#F27731" stroke-width=".35" stroke-opacity=".6"/>`).join('')}</svg>
+        ${V.map(([x, y], k) => `<span class="node n${k}" style="right:${100 - x}%;top:${y}%"><img src="${src((imgs[k + 1] || imgs[0]).cover)}" alt=""></span>`).join('')}
+        <span class="center"><img src="${src(imgs[0].cover)}" alt="" fetchpriority="high"></span>
+        <span class="chip-float" style="right:-4%;top:58%"><i></i>${INITS.length} مبادرة موثّقة</span>
+        <span class="chip-float c2" style="left:-2%;top:18%"><i></i>${govs} محافظات</span>
       </div>
-    </div></section>
-
-    <div class="ticker" aria-hidden="true"><div class="ticker-track">${tickerRow}${tickerRow}${tickerRow}${tickerRow}</div></div>
-
-    <section class="section"><div class="wrap">
-      <div class="sec-head"><div><h2>الآن في البنك</h2><p>أحدث ما نُشر من الميدان: مبادرات منفّذة، ودعوات مفتوحة للتقديم.</p></div><a class="link-btn" href="${url('news.html')}">كل الإعلانات ${icon('arrowL')}</a></div>
-      <div class="timeline">${latest.map(({ t, x }) => `<div class="tl-item reveal"><span class="when">${fmtDate(x.date)}</span>
-        <article class="card"><div class="media"><img src="${src(x.cover)}" alt="" loading="lazy"></div><div class="body">
-          <span class="pill ${t === 'post' ? (x.kind === 'call' ? 'yellow' : 'blue') : ''}" style="align-self:flex-start">${t === 'post' ? (x.kind === 'call' ? 'دعوة مفتوحة' : 'خبر') : 'مبادرة'}</span>
-          <h3><a href="${t === 'post' ? postUrl(x) : initUrl(x)}">${esc(x.title)}</a></h3>
-          <span class="more">اقرأ ${icon('arrowL')}</span></div></article></div>`).join('')}</div>
-    </div></section>
-
-    <section class="section" style="padding-top:20px"><div class="wrap">
-      <div class="sec-head"><div><h2>لكل تحدٍّ مبادرة</h2><p>مجالات يعمل فيها المبادرون، من الدعم النفسي إلى الصحة والتوعية والفنون.</p></div><a class="link-btn" href="${url('initiatives.html')}">كل المجالات ${icon('arrowL')}</a></div>
-      <div class="panels">${topThemes.map((th, k) => { const i = INITS.find((x) => (x.themes || []).includes(th) && x.cover) || INITS[k]; const n = themes[th];
-        return `<a class="panel${k ? '' : ' on'}" href="${url('initiatives.html?theme=' + encodeURIComponent(th))}"><img src="${src(i.cover)}" alt="" loading="lazy"><span class="ic">${icon(['hands', 'bulb', 'spark', 'people'][k % 4])}</span>
-          <div class="txt"><small>${n} مبادرة</small><h3>${esc(th)}</h3><p>${esc(i.summary)}</p><span class="go">استكشف المبادرات ${icon('arrowL')}</span></div><span class="bar"></span></a>`; }).join('')}</div>
-    </div></section>
-
-    <section class="section" style="padding-top:10px"><div class="impact reveal">
-      <div class="impact-head"><div class="who"><span class="logo"><img src="${src(S.brand.icon)}" alt=""></span><div><h2>أثر المبادرات بالأرقام</h2><p>قراءة في ${INITS.length} مبادرة موثّقة في مكتبة بنك المبادرات</p></div></div>
-        <span class="impact-tag">آخر تحديث <b>${fmtDate(INITS[0].date)}</b></span></div>
-      <div class="impact-body">
-        <div class="impact-big"><div><div class="num" id="impN">${ind[0][0]}%</div><h3 id="impT">${esc(ind[0][1])}</h3><p id="impD">${esc(ind[0][2])}</p></div><div class="matrix" id="mx" aria-hidden="true">${Array.from({ length: 100 }, () => '<i></i>').join('')}</div></div>
-        <div class="impact-list" role="group" aria-label="المؤشرات">${ind.map(([v, l], k) => `<button type="button" data-k="${k}" aria-pressed="${!k}"><b style="color:${['#F2B12E', '#F68B47', '#5AB0EA', '#7BD8C7'][k]}">${v}%</b><span>${esc(l)}</span></button>`).join('')}</div>
-      </div>
-      <div class="impact-foot"><p>تُحسب المؤشرات تلقائيًا من بيانات المكتبة، وتتحدث كلما أُضيفت مبادرة جديدة من لوحة التحكم.</p><a class="btn btn-glass btn-sm" href="${url('initiatives.html')}">${icon('grid')} تصفّح المكتبة</a></div>
     </div></section>
 
     <section class="section"><div class="wrap">
-      <div class="sec-head"><div><h2>قصص تصنع الفرق</h2><p>شباب وشابات حوّلوا التحدي إلى مساحة أمل في الخيام ومراكز الإيواء.</p></div><a class="link-btn" href="${url('initiatives.html')}">كل القصص ${icon('arrowL')}</a></div>
-      <div class="stories-grid">
-        <a class="feat reveal" href="${initUrl(feat[0])}"><img src="${src(feat[0].cover)}" alt="" loading="lazy"><div class="in"><span class="pill yellow">${esc((feat[0].themes || [])[0] || 'مبادرة')}</span><h3>${esc(feat[0].title)}</h3><p>${esc(feat[0].summary)}</p><span class="btn btn-white btn-sm">اقرأ القصة كاملة ${icon('arrowL')}</span></div></a>
-        <div class="side-list reveal">${INITS.filter((i) => i !== feat[0]).slice(0, 5).map((i) => `<a href="${initUrl(i)}"><img src="${src(i.cover)}" alt="" loading="lazy"><div><small>${esc(i.governorate || '')} · ${esc((i.themes || [])[0] || '')}</small><b>${esc(i.title)}</b></div></a>`).join('')}</div>
-      </div>
+      <div class="sec-head center"><div><span class="eyebrow">كيف يعمل البنك</span><h2>من <span class="b">الفكرة</span> إلى <span class="hl">الأثر</span></h2><p>خمس محطات متصلة، مثل رؤوس الخماسي في شعارنا.</p></div></div>
+      <div class="journey">${steps.map(([t, d], k) => `<div class="jstep reveal"><span class="pg">${k + 1}</span><div><b>${t}</b><span>${d}</span></div></div>`).join('')}</div>
     </div></section>
 
-    <section class="section" style="padding-top:20px"><div class="wrap">
-      <div class="sec-head"><div><h2>مساراتنا</h2><p>أطر تعمل ضمنها المبادرات مع شركائنا، ولكل مسار فريقه وأثره.</p></div><a class="link-btn" href="${url('partners.html')}">الشركاء ${icon('arrowL')}</a></div>
-      <div class="tracks">${pk.map((k, n) => { const its = INITS.filter((i) => i.project === k); const im = its.find((i) => i.cover) || INITS[0]; const govs = new Set(its.map((i) => i.governorate).filter(Boolean)).size; const ph = its.reduce((s, i) => s + (i.gallery || []).length, 0);
-        return `<article class="track ${trackColors[n % 2]} reveal"><span class="ghost">${ghost(k)}</span><div class="txt"><span class="pill ${n % 2 ? 'blue' : ''}" style="align-self:flex-start">مسار</span><h3>${esc(k)}</h3>
-          <p>${/A4A|الوصول/.test(k) ? 'مبادرات شبابية تعزّز إدماج الأشخاص ذوي الإعاقة واستقلاليتهم في قطاع غزة، بالشراكة مع جمعية العون الطبي للفلسطينيين.' : 'مبادرات يقودها متطوعو المساحة الشبابية في المنتدى، تركّز على التوعية الصحية والدعم النفسي والفنون.'}</p>
-          <div class="nums"><span><b>${its.length}</b>مبادرة</span><span><b>${govs}</b>محافظات</span><span><b>${ph}</b>صورة</span></div>
-          <a class="btn btn-primary btn-sm" href="${url('initiatives.html?project=' + encodeURIComponent(k))}">اكتشف المسار ${icon('arrowL')}</a></div>
-          <div class="img"><img src="${src(im.cover)}" alt="" loading="lazy"></div></article>`; }).join('')}</div>
+    <section class="section alt"><div class="wrap">
+      <div class="sec-head"><div><span class="eyebrow">مكتبة المبادرات</span><h2>أحدث <span class="b">المبادرات</span></h2><p>مبادرات نفّذها شباب وشابات في الخيام ومراكز الإيواء، موثّقة بالصور والأهداف والأثر.</p></div><a class="link-arrow" href="${url('initiatives.html')}">كل المبادرات (${INITS.length}) ${icon('arrowL')}</a></div>
+      <div class="bento">${feat.slice(0, 5).map((i, k) => `<article class="card${k ? '' : ' big'} reveal"><div class="media"><img src="${src(i.cover)}" alt="" loading="lazy">${i.governorate ? `<div class="badges"><span class="gov">${esc(i.governorate)}</span></div>` : ''}</div>
+        <div class="body"><div class="chips-row">${(i.themes || []).slice(0, 2).map((t) => `<span class="pill${k ? '' : ' solid'}">${esc(t)}</span>`).join('')}</div><h3><a href="${initUrl(i)}">${esc(i.title)}</a></h3>${k ? '' : `<p class="desc">${esc(i.summary)}</p>`}
+        <div class="meta"><span>${icon('pin')}${esc(i.location)}</span><span>${icon('cal')}${fmtDate(i.date)}</span></div></div></article>`).join('')}</div>
     </div></section>
 
-    <section class="section" style="padding-top:20px"><div class="wrap">
-      <div class="sec-head"><div><h2>مكتبة المبادرات</h2><p>${INITS.length} مبادرة موثّقة بأهدافها وأنشطتها وصورها وفرقها، مصنّفة حسب المحافظة والمجال.</p></div><a class="link-btn" href="${url('initiatives.html')}">تصفّح المكتبة كاملة ${icon('arrowL')}</a></div>
-      <div class="shelf">
-        <div class="shelf-nav" role="group" aria-label="تصفية حسب المحافظة"><button type="button" data-g="" aria-pressed="true">كل المبادرات <span>${INITS.length}</span></button>${sortedKeys(count(INITS, (i) => i.governorate)).map((g) => `<button type="button" data-g="${esc(g)}" aria-pressed="false">${esc(g)} <span>${INITS.filter((i) => i.governorate === g).length}</span></button>`).join('')}</div>
-        <div class="covers" id="covers"></div>
-      </div>
+    <section class="section"><div class="wrap">
+      <div class="sec-head"><div><span class="eyebrow">المجالات</span><h2>لكل تحدٍّ <span class="hl">مبادرة</span></h2><p>اختر مجالًا لتصفّح مبادراته.</p></div></div>
+      <div class="pentas">${themeKeys.map((t) => `<a class="ptile reveal" href="${url('initiatives.html?theme=' + encodeURIComponent(t))}"><span class="pg">${icon(themeIcon[t] || 'spark')}</span><span class="n">${themes[t]}</span><b>${esc(t)}</b><span>مبادرة</span></a>`).join('')}</div>
     </div></section>
 
-    <section class="section"><div class="wrap world">
-      <div class="orbit reveal" aria-hidden="true"><span class="ring r1"></span><span class="ring r2"></span><span class="core"><img src="${src(S.brand.icon)}" alt=""></span>
-        ${partnerSats.map((p, k) => { const a = (angles[k] * Math.PI) / 180; const r = 50; return `<span class="sat" style="right:${50 + r * Math.cos(a)}%;top:${50 + r * Math.sin(a)}%"><img src="${src(p.logo)}" alt=""></span>`; }).join('')}
-        ${['SDF Youth Hub', 'A4A'].map((t, k) => { const a = (angles[4 + k] * Math.PI) / 180; return `<span class="sat" style="right:${50 + 50 * Math.cos(a)}%;top:${50 + 50 * Math.sin(a)}%">${t}</span>`; }).join('')}
-      </div>
+    <section class="section impact"><div class="wrap">
       <div>
-        <div class="sec-head" style="margin-bottom:10px"><div><h2>عالم بنك المبادرات</h2><p>شبكة من الشركاء والمساحات الشبابية التي تحتضن المبادرات وتدعمها، ولكل منها دور في رحلة الفكرة.</p></div></div>
-        <div class="world-list">${S.partners.map((p) => `<a href="${esc(p.url)}" target="_blank" rel="noopener"><b>${esc(p.name)}</b><small>${esc(p.role)}</small></a>`).join('')}
-          <div><b>SDF Youth Hub</b><small>مساحة شبابية للمبادرات والتطوع</small></div><div><b>شبكة الوصول للجميع (A4A)</b><small>متطوعون من أجل الدمج والمواءمة</small></div></div>
-        <a class="btn btn-white btn-sm" href="${url('about.html')}">تعرّف علينا ${icon('arrowL')}</a>
+        <div class="sec-head" style="margin-bottom:10px"><div><span class="eyebrow">الأثر بالأرقام</span><h2>خماسي الأثر</h2></div></div>
+        <p class="lead">خمسة مؤشرات تُحسب تلقائيًا من مكتبة المبادرات، وتتحدّث مع كل مبادرة جديدة تُضاف من لوحة التحكم.</p>
+        <div class="ind-list">${ind.map(([l, v]) => `<div class="ind"><span>${esc(l)}</span><b>${v}%</b><span class="bar"><i style="width:${v}%"></i></span></div>`).join('')}</div>
+        <div class="impact-nums"><div><b>${INITS.length}</b><span>مبادرة</span></div><div><b>${govs}</b><span>محافظات</span></div><div><b>${photos}</b><span>صورة موثّقة</span></div><div><b>${team}</b><span>مُبادِر/ة</span></div></div>
       </div>
+      <div class="reveal">${radar}</div>
     </div></section>
 
-    <section class="section" style="padding-top:10px"><div class="wrap">
-      <div class="sec-head center"><div><h2>شارك في صناعة التغيير</h2></div></div>
-      <div class="join">
-        <a href="${url('submit.html')}" class="reveal"><span class="ic">${icon('bulb')}</span><b>قدّم فكرتك</b><small>حوّل فكرتك إلى مبادرة على أرض الواقع</small></a>
-        <a href="${url('submit.html?form=pwd')}" class="reveal"><span class="ic">${icon('people')}</span><b>مبادرة دامجة</b><small>نموذج خاص لمبادرات الأشخاص ذوي الإعاقة</small></a>
-        <a href="${url('support.html')}" class="reveal"><span class="ic">${icon('hands')}</span><b>كن شريكًا</b><small>ادعم المبادرات بالموارد والخبرات</small></a>
-        <a href="${url('ideas.html')}" class="reveal"><span class="ic">${icon('spark')}</span><b>بنك الأفكار</b><small>استلهم من أفكار الآخرين وابنِ عليها</small></a>
-      </div>
-    </div></section>`;
+    <section class="section"><div class="wrap">
+      <div class="sec-head"><div><span class="eyebrow">مساراتنا</span><h2>مساران <span class="b">يحتضنان</span> المبادرات</h2></div><a class="link-arrow" href="${url('partners.html')}">الشركاء ${icon('arrowL')}</a></div>
+      <div class="halves reveal">${pk.map((k, n) => { const its = INITS.filter((i) => i.project === k); const im = its.find((i) => i.cover) || INITS[0]; const g = new Set(its.map((i) => i.governorate).filter(Boolean)).size; const ph = its.reduce((s2, i) => s2 + (i.gallery || []).length, 0);
+        return `<article class="half ${n ? 'h-orange' : 'h-blue'}"><span class="ghost">${/A4A|الوصول/.test(k) ? 'A4A' : /Youth/i.test(k) ? 'HUB' : 'IB'}</span><div class="dome"><img src="${src(im.cover)}" alt="" loading="lazy"></div><h3>${esc(k)}</h3>
+          <p>${/A4A|الوصول/.test(k) ? 'مبادرات شبابية تعزّز إدماج الأشخاص ذوي الإعاقة واستقلاليتهم، بالشراكة مع جمعية العون الطبي للفلسطينيين.' : 'مبادرات يقودها متطوعو المساحة الشبابية في المنتدى، في التوعية الصحية والدعم النفسي والفنون.'}</p>
+          <div class="nums"><span><b>${its.length}</b>مبادرة</span><span><b>${g}</b>محافظات</span><span><b>${ph}</b>صورة</span></div>
+          <a class="btn btn-white btn-sm" href="${url('initiatives.html?project=' + encodeURIComponent(k))}">اكتشف المسار ${icon('arrowL')}</a></article>`; }).join('')}</div>
+    </div></section>
 
-    // سلايدر الصورة الرئيسية
-    let cur = 0; const imgs = main.querySelectorAll('.photo-card .frame img'); const dots = main.querySelectorAll('.dots button');
-    const show = (k) => { cur = k; imgs.forEach((im, n) => im.classList.toggle('on', n === k)); dots.forEach((d, n) => d.setAttribute('aria-current', n === k)); document.getElementById('capT').textContent = feat[k].title; document.getElementById('capLink').href = initUrl(feat[k]); };
-    dots.forEach((d) => d.addEventListener('click', () => { show(+d.dataset.k); clearInterval(timer); }));
-    const timer = matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : setInterval(() => show((cur + 1) % feat.length), 5000);
-    // مؤشرات الأثر
-    const mx = [...document.querySelectorAll('#mx i')];
-    const setInd = (k) => { const [v, l, d] = ind[k]; document.getElementById('impN').textContent = v + '%'; document.getElementById('impT').textContent = l; document.getElementById('impD').textContent = d; mx.forEach((m, n) => m.classList.toggle('on', n < Math.round(v))); document.querySelectorAll('.impact-list button').forEach((b) => b.setAttribute('aria-pressed', +b.dataset.k === k)); };
-    document.querySelectorAll('.impact-list button').forEach((b) => b.addEventListener('click', () => setInd(+b.dataset.k)));
-    setInd(0);
-    // المكتبة المصغّرة
-    const covers = document.getElementById('covers');
-    const renderCovers = (g) => { covers.innerHTML = INITS.filter((i) => !g || i.governorate === g).slice(0, 8).map((i) => `<a class="cover-card" href="${initUrl(i)}"><img src="${src(i.cover)}" alt="" loading="lazy"><span class="pill glass pin">${esc(i.governorate || '')}</span><span class="in"><small>${esc((i.themes || [])[0] || 'مبادرة')}</small><b>${esc(i.title)}</b></span></a>`).join(''); };
-    document.querySelectorAll('.shelf-nav button').forEach((b) => b.addEventListener('click', () => { document.querySelectorAll('.shelf-nav button').forEach((x) => x.setAttribute('aria-pressed', x === b)); renderCovers(b.dataset.g); }));
-    renderCovers('');
+    <section class="section alt"><div class="wrap">
+      <div class="sec-head"><div><span class="eyebrow">الإعلانات</span><h2>آخر <span class="b">التحديثات</span></h2></div><a class="link-arrow" href="${url('news.html')}">كل الإعلانات ${icon('arrowL')}</a></div>
+      <div class="grid grid-3">${POSTS.slice(0, 3).map(postCard).join('')}</div>
+    </div></section>
+
+    <section class="section"><div class="wrap">
+      <div class="sec-head"><div><span class="eyebrow">ماذا يقول المبادرون</span><h2>أصوات من <span class="hl">الميدان</span></h2></div>
+        <div class="scroller-nav"><button type="button" data-dir="1" aria-label="السابق">${icon('arrowR')}</button><button type="button" data-dir="-1" aria-label="التالي">${icon('arrowL')}</button></div></div>
+      <div class="stories" id="stories" tabindex="0">${S.testimonials.map((t) => `<figure class="story">${icon('quote', 'q')}<blockquote>${esc(t.quote)}</blockquote><figcaption class="who"><b>${esc(t.name)}</b><span>${esc(t.role)}</span></figcaption></figure>`).join('')}</div>
+    </div></section>
+
+    <section class="section alt" style="padding-bottom:150px"><div class="wrap">
+      <div class="sec-head center"><div><span class="eyebrow">شركاء النجاح</span><h2>شبكة <span class="b">تدعم</span> المبادرات</h2></div></div>
+      ${partnersHTML()}
+    </div></section>`;
+    const st = document.getElementById('stories');
+    document.querySelectorAll('.scroller-nav button').forEach((b) => b.addEventListener('click', () => st.scrollBy({ left: -b.dataset.dir * st.clientWidth * 0.9, behavior: 'smooth' })));
   }
 
   /* ====================== مكتبة المبادرات ====================== */
@@ -428,7 +397,7 @@
     main.innerHTML = pageHero('الشركاء', 'تعرف على شركائنا الذين يعملون معنا لتعزيز الابتكار ودعم المبادرات المجتمعية.', [['الشركاء']]) + `
     <section class="section"><div class="wrap">
       <div class="grid grid-4">${S.partners.map((p) => `<a class="card reveal" href="${esc(p.url)}" target="_blank" rel="noopener"><div class="partner" style="border:0;min-height:150px"><img src="${src(p.logo)}" alt="" loading="lazy" style="filter:none;opacity:1"></div><div class="body"><h3>${esc(p.name)}</h3><p class="desc">${esc(p.nameEn)}</p><span class="pill blue">${esc(p.role)}</span></div></a>`).join('')}</div>
-      <div style="margin-top:60px" class="cta reveal"><div><h2>كن شريكًا في التغيير</h2><p>انضم إلينا لتعزيز مبادراتنا وتحقيق تأثير دائم في المجتمعات.</p></div><a class="btn btn-light" href="${url('support.html')}">طرق التعاون</a></div>
+      <div style="margin-top:60px" class="cta blue reveal"><div><h2>كن شريكًا في التغيير</h2><p>انضم إلينا لتعزيز مبادراتنا وتحقيق تأثير دائم في المجتمعات.</p></div><a class="btn btn-light" href="${url('support.html')}">طرق التعاون</a></div>
     </div></section>`;
   }
 
@@ -440,7 +409,7 @@
       <div class="grid grid-3">${S.supportWays.map((w) => `<div class="value reveal" style="text-align:start"><div class="ic" style="margin:0 0 14px">${icon(w.icon)}</div><h3>${esc(w.title)}</h3><p>${esc(w.text)}</p></div>`).join('')}</div>
     </div></section>
     <section class="section cream"><div class="wrap">${statsHTML()}</div></section>
-    <section class="section"><div class="wrap"><div class="cta reveal"><div><h2>لنتحدث عن شراكة</h2><p>راسلنا على ${esc(S.contact.ibEmail)} أو اتصل بنا مباشرة وسيتواصل معك فريق الشراكات.</p></div><a class="btn btn-light" href="${url('contact.html')}">تواصل معنا</a></div></div></section>`;
+    <section class="section"><div class="wrap"><div class="cta blue reveal"><div><h2>لنتحدث عن شراكة</h2><p>راسلنا على ${esc(S.contact.ibEmail)} أو اتصل بنا مباشرة وسيتواصل معك فريق الشراكات.</p></div><a class="btn btn-light" href="${url('contact.html')}">تواصل معنا</a></div></div></section>`;
   }
 
   function contact() {
