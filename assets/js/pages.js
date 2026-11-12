@@ -86,7 +86,7 @@
         return `<circle class="pt" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="5"/><text x="${lx.toFixed(1)}" y="${(ly + (k === 0 ? -6 : 4)).toFixed(1)}" text-anchor="${anc}">${esc(l)}</text><text class="v" x="${lx.toFixed(1)}" y="${(ly + (k === 0 ? 10 : 20)).toFixed(1)}" text-anchor="${anc}">${v}%</text>`; }).join('')}
     </svg>`;
     // الكوكبة الخماسية (رؤوس الخماسي + صورة وسطى)
-    const V = [[50, 7], [93, 38], [77, 90], [23, 90], [7, 38]];
+    const V = [[50, 8], [92, 38], [76, 88], [24, 88], [8, 38]];
     const imgs = feat.slice(0, 6);
     const photos = INITS.reduce((n, i) => n + (i.gallery || []).length, 0);
     const team = INITS.reduce((n, i) => n + (i.team || []).length, 0);
@@ -95,7 +95,7 @@
 
     main.innerHTML = `
     <section class="hero"><div class="wrap">
-      <div>
+      <div class="hero-copy">
         <span class="tag-line"><i></i>مبادرة من ${esc(S.brand.org)}</span>
         <h1>نبادر <span class="b">اليوم</span>..<br>لنصنع غدًا <span class="o">أفضل</span></h1>
         <p class="lead">${esc(S.brand.intro)} نحوّل أفكار الشباب في قطاع غزة إلى مبادرات على الأرض، ونوثّق قصصها وأثرها.</p>
@@ -105,12 +105,18 @@
         </div>
         <div class="penta-stats">${S.stats.slice(0, 3).map((s) => `<div class="pstat"><span class="pg">${icon(s.icon)}</span><div><b data-count="${s.value}" data-plus="1">0</b><span>${esc(s.label)}</span></div></div>`).join('')}</div>
       </div>
-      <div class="constellation" aria-hidden="true">
-        <svg class="lines" viewBox="0 0 100 100" preserveAspectRatio="none"><polygon points="${V.map(([x, y]) => `${x},${y}`).join(' ')}" fill="none" stroke="#0561A0" stroke-width=".5" stroke-dasharray="1.6 1.2"/>${V.map(([x, y]) => `<line x1="${x}" y1="${y}" x2="50" y2="56" stroke="#F27731" stroke-width=".35" stroke-opacity=".6"/>`).join('')}</svg>
-        ${V.map(([x, y], k) => `<span class="node n${k}" style="right:${100 - x}%;top:${y}%"><img src="${src((imgs[k + 1] || imgs[0]).cover)}" alt=""></span>`).join('')}
-        <span class="center"><img src="${src(imgs[0].cover)}" alt="" fetchpriority="high"></span>
-        <span class="chip-float" style="right:-4%;top:58%"><i></i>${INITS.length} مبادرة موثّقة</span>
-        <span class="chip-float c2" style="left:-2%;top:18%"><i></i>${govs} محافظات</span>
+      <div class="penta-hero" aria-hidden="true">
+        <svg viewBox="0 0 100 100"><defs>
+          <linearGradient id="phFill" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#EAF3FB"/><stop offset="1" stop-color="#FEF0E6"/></linearGradient>
+          <linearGradient id="phStroke" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0561A0"/><stop offset="1" stop-color="#F27731"/></linearGradient></defs>
+          <polygon class="ph-outline" points="${V.map(([x, y]) => `${x},${y}`).join(' ')}"/>
+          ${V.map(([x, y]) => `<line class="ph-spoke" x1="${x}" y1="${y}" x2="50" y2="54"/>`).join('')}
+        </svg>
+        ${V.map(([x, y], k) => `<span class="ph-node" style="right:${100 - x}%;top:${y}%;--c:${['#F27731', '#0561A0', '#F2B12E', '#0561A0', '#F27731'][k]};--d:${(0.9 + k * 0.12).toFixed(2)}s"></span>`).join('')}
+        <span class="ph-ring"></span>
+        <span class="ph-center"><img src="${src(S.heroImages[0] || imgs[0].cover)}" alt="" fetchpriority="high"></span>
+        <span class="ph-chip" style="right:-9%;top:72%;--d:1.5s"><i>${icon('spark')}</i><span><b>${INITS.length}</b>مبادرة موثّقة</span></span>
+        <span class="ph-chip o" style="left:-4%;top:6%;--d:1.7s"><i>${icon('pin')}</i><span><b>${govs}</b>محافظات</span></span>
       </div>
     </div></section>
 
@@ -447,113 +453,164 @@
     });
   }
 
-  /* ====================== قدّم فكرتك ====================== */
+  /* ====================== قدّم فكرتك (نموذج بخطوات) ====================== */
   function submit() {
     setTitle('قدّم فكرتك', S.submit.intro);
     const F = S.submit; const AUTO = 'ib_form_autosave';
-    const person = (n, label) => `<fieldset class="form-grid member-set" data-n="${n}" style="border:0;padding:0;margin:0 0 18px"${n > 1 ? ' hidden' : ''}>
-      <legend class="label full" style="font-weight:700;margin-bottom:8px">${label}</legend>
-      <div class="field"><label>الاسم <span class="req">*</span></label><input class="input" name="m${n}_name"${n === 1 ? ' required' : ''}></div>
-      <div class="field"><label>تاريخ الميلاد</label><input class="input" type="date" name="m${n}_dob"></div>
-      <div class="field"><label>رقم الجوال <span class="req">*</span></label><input class="input" type="tel" dir="ltr" name="m${n}_phone"${n === 1 ? ' required' : ''}></div>
-      <div class="field"><label>البريد الإلكتروني <span class="req">*</span></label><input class="input" type="email" dir="ltr" name="m${n}_email"${n === 1 ? ' required' : ''}></div>
-    </fieldset>`;
+    const STEPS = [
+      ['البداية', 'flag'], ['المبادرة', 'bulb'], ['التفاصيل', 'list'], ['الفريق', 'team'], ['المراجعة', 'check'],
+    ];
+    const TIPS = [
+      ['اختر النموذج المناسب', 'النموذج الخاص بذوي الإعاقة يسألك عن المواءمة والترتيبات التيسيرية، ليصل الجميع إلى مبادرتك بكرامة.'],
+      ['عنوان يشرح نفسه', 'اختر اسمًا قصيرًا يعبّر عن المشكلة والحل معًا، مثل «دوري المعرفة.. مفاهيم صحية لليافعين».'],
+      ['كن محددًا', 'اكتب المشكلة كما تراها في الميدان، والأهداف بنقاط واضحة يمكن قياسها، والأنشطة مع مدة كل نشاط.'],
+      ['فريق صغير متكامل', 'يكفي من شخص إلى خمسة أشخاص. شخص التواصل هو من سيتواصل معه فريق بنك المبادرات.'],
+      ['راجع قبل الإرسال', 'تأكد من البيانات وطرق التواصل. يصلك تأكيد برقم الطلب، ويتواصل معك الفريق بعد دراسته.'],
+    ];
+    const opt = (name, v, type = 'checkbox') => `<label class="opt"><input type="${type}" name="${name}" value="${esc(v)}"><span>${esc(v)}</span></label>`;
+    const counter = (id, max) => `<small data-cnt="${id}" data-max="${max}">0 / ${max}</small>`;
+    const member = (n) => `<div class="mcard" data-n="${n}"><header><span class="av">${n}</span><div><b>${n === 1 ? 'شخص التواصل' : 'عضو الفريق ' + n}</b><small>${n === 1 ? 'سيتواصل معه فريق بنك المبادرات' : 'اختياري: تاريخ الميلاد'}</small></div></header>
+      <div class="grid2"><div class="q"><label for="m${n}_name">الاسم الكامل</label><input class="fin" id="m${n}_name" name="m${n}_name" autocomplete="name" data-req><div class="err">اكتب الاسم</div></div>
+      <div class="q"><label for="m${n}_dob">تاريخ الميلاد</label><input class="fin" type="date" id="m${n}_dob" name="m${n}_dob"></div>
+      <div class="q"><label for="m${n}_phone">رقم الجوال</label><input class="fin" type="tel" dir="ltr" id="m${n}_phone" name="m${n}_phone" autocomplete="tel" placeholder="059XXXXXXX" data-req data-phone><div class="err">رقم جوال صحيح من 9 أرقام على الأقل</div></div>
+      <div class="q"><label for="m${n}_email">البريد الإلكتروني</label><input class="fin" type="email" dir="ltr" id="m${n}_email" name="m${n}_email" autocomplete="email" placeholder="name@example.com" data-req data-email><div class="err">بريد إلكتروني صحيح</div></div></div></div>`;
+
     main.innerHTML = pageHero(F.title, F.intro, [['قدّم فكرتك']]) + `
-    <section class="section" style="padding-top:44px"><div class="wrap form-shell">
-      <form class="form-card" id="idea" novalidate>
-        <div id="msg"></div>
-        <div class="label" style="font-weight:700;margin-bottom:10px">هل تستهدف مبادرتك الأشخاص ذوي الإعاقة بشكل أساسي؟</div>
-        <div class="choice">
-          <label><input type="radio" name="form" value="pwd"><span><b>نعم، تستهدف ذوي الإعاقة</b><small>نموذج مخصص يراعي مشاركة الأشخاص ذوي الإعاقة، والمواءمة، والترتيبات التيسيرية.</small></span></label>
-          <label><input type="radio" name="form" value="general" checked><span><b>لا، مبادرة لفئات أخرى</b><small>النموذج العام لأفكار المبادرات المجتمعية الموجّهة للشباب والنساء والأطفال وغيرهم.</small></span></label>
-        </div>
-        <div class="consent"><b>قبل البدء، نرجو قراءة ما يلي:</b><ul>${F.consent.map((c) => `<li>${esc(c)}</li>`).join('')}</ul>
-          <label class="check"><input type="checkbox" name="consent" required> قرأت ما سبق وفهمته، وأوافق على جمع البيانات واستخدامها لهذا الغرض، وقد حصلت على موافقة أعضاء الفريق.</label></div>
+    <section class="section" style="padding-top:40px"><div class="wrap wiz-shell">
+      <form class="wiz" id="idea" novalidate>
+        <div class="wiz-top"><ol class="wiz-steps">${STEPS.map(([t, ic], k) => `<li data-k="${k}"><span class="d">${k + 1}</span>${t}</li>`).join('')}</ol><div class="wiz-bar"><i id="bar"></i></div></div>
+        <div class="wiz-body" id="body">
+          <fieldset class="wstep" data-step="0"><legend>لنبدأ</legend><p class="lead">التقديم مجاني ويستغرق نحو 10 دقائق، ويُحفظ ما تكتبه تلقائيًا على جهازك.</p>
+            <div class="kind" role="radiogroup" aria-label="نوع النموذج">
+              <label><input type="radio" name="form" value="general" checked><span class="ki">${icon('people')}</span><span><b>مبادرة مجتمعية</b><small>للشباب والنساء والأطفال وغيرهم من الفئات.</small></span><span class="tick"></span></label>
+              <label><input type="radio" name="form" value="pwd"><span class="ki">${icon('hands')}</span><span><b>مبادرة دامجة لذوي الإعاقة</b><small>تراعي المواءمة والترتيبات التيسيرية والمشاركة الفاعلة.</small></span><span class="tick"></span></label>
+            </div>
+            <div class="q consent2"><b>قبل البدء</b><ul>${F.consent.map((c) => `<li>${esc(c)}</li>`).join('')}</ul>
+              <label class="switch-row"><input type="checkbox" name="consent" data-req-check><span class="sw"></span><span>قرأت ما سبق وأوافق على جمع البيانات لهذا الغرض، وحصلت على موافقة أعضاء الفريق.</span></label>
+              <div class="err">يلزم الموافقة للمتابعة</div></div>
+          </fieldset>
 
-        <h3><span class="n">1</span> المعلومات الأساسية للمبادرة</h3>
-        <div class="form-grid">
-          <div class="field full"><label for="title">اسم المبادرة <span class="req">*</span></label><input class="input" id="title" name="title" required><div class="hint">عنوان مختصر وجذاب يعبّر عن المشكلة والحل المقترح.</div></div>
-          <div class="field full"><span class="label">مجال المبادرة <span class="req">*</span></span><div class="tick-grid">${F.domains.map((d) => `<label><input type="checkbox" name="domains" value="${esc(d)}">${esc(d)}</label>`).join('')}</div></div>
-          <div class="field"><label for="location">موقع التنفيذ <span class="req">*</span></label><input class="input" id="location" name="location" required placeholder="المحافظة، المنطقة، المخيم/المركز"></div>
-          <div class="field"><label for="duration">مدة تنفيذ المبادرة <span class="req">*</span></label><input class="input" id="duration" name="duration" required placeholder="مثال: 3 أيام"></div>
-          <div class="field full"><span class="label">الفئات المستهدفة <span class="req">*</span></span><div class="tick-grid">${F.audiences.map((d) => `<label><input type="checkbox" name="audiences" value="${esc(d)}">${esc(d)}</label>`).join('')}</div></div>
-          <div class="field full pwd-only" hidden><label for="access">الترتيبات التيسيرية والمواءمة</label><textarea class="textarea" id="access" name="access" placeholder="كيف ستضمن وصول الأشخاص ذوي الإعاقة ومشاركتهم الفاعلة؟ (مكان موائم، لغة إشارة، مواصلات…)"></textarea></div>
-          <div class="field full"><label for="problem">المشكلة التي تسعى المبادرة لحلها <span class="req">*</span></label><textarea class="textarea" id="problem" name="problem" required></textarea></div>
-          <div class="field full"><label for="goals">أهداف المبادرة <span class="req">*</span></label><textarea class="textarea" id="goals" name="goals" required></textarea></div>
-          <div class="field full"><label for="activities">أنشطة المبادرة <span class="req">*</span></label><textarea class="textarea" id="activities" name="activities" required placeholder="النشاط / الوصف / مدة التنفيذ"></textarea></div>
-          <div class="field"><label for="budget">الميزانية المتوقعة <span class="req">*</span></label><input class="input" id="budget" name="budget" required placeholder="مع تحديد العملة"></div>
-        </div>
+          <fieldset class="wstep" data-step="1"><legend>عن المبادرة</legend><p class="lead">عرّفنا بفكرتك: ماذا، وأين، ولمن.</p>
+            <div class="q"><label for="title">اسم المبادرة ${counter('title', 90)}</label><input class="fin" id="title" name="title" maxlength="90" placeholder="مثال: مساحة فرح.. فضاء آمن للأطفال" data-req><div class="err">اكتب اسمًا للمبادرة</div></div>
+            <div class="q" data-group="domains"><span class="ql">مجال المبادرة <small>اختر مجالًا أو أكثر</small></span><div class="opts">${F.domains.map((d) => opt('domains', d)).join('')}</div><div class="err">اختر مجالًا واحدًا على الأقل</div></div>
+            <div class="grid2">
+              <div class="q"><label for="location">مكان التنفيذ</label><input class="fin" id="location" name="location" placeholder="المحافظة، المنطقة، المخيم أو المركز" data-req><div class="err">حدّد مكان التنفيذ</div></div>
+              <div class="q"><label for="duration">مدة التنفيذ</label><input class="fin" id="duration" name="duration" placeholder="مثال: 3 أيام" data-req><div class="quick" data-for="duration">${['يوم واحد', '3 أيام', 'أسبوع', 'أسبوعان', 'شهر'].map((x) => `<button type="button">${x}</button>`).join('')}</div><div class="err">حدّد المدة</div></div>
+            </div>
+            <div class="q" data-group="audiences"><span class="ql">الفئات المستهدفة <small>اختر فئة أو أكثر</small></span><div class="opts">${F.audiences.map((d) => opt('audiences', d)).join('')}</div><div class="err">اختر فئة واحدة على الأقل</div></div>
+            <div class="q pwd-only" hidden><label for="access">الترتيبات التيسيرية والمواءمة</label><textarea class="fin" id="access" name="access" placeholder="كيف ستضمن وصول الأشخاص ذوي الإعاقة ومشاركتهم؟ مكان موائم، لغة إشارة، مواصلات…"></textarea></div>
+          </fieldset>
 
-        <h3><span class="n">2</span> فريق المبادرة</h3>
-        <div class="field" style="margin-bottom:16px;max-width:260px"><label for="teamSize">عدد الفريق <span class="req">*</span></label>
-          <select class="select" id="teamSize" name="teamSize">${['شخص واحد', 'شخصان', 'ثلاث أشخاص', 'أربع أشخاص', 'خمس أشخاص'].map((t, k) => `<option value="${k + 1}">${t}</option>`).join('')}</select></div>
-        ${person(1, 'شخص التواصل')}${person(2, 'الشخص الثاني')}${person(3, 'الشخص الثالث')}${person(4, 'الشخص الرابع')}${person(5, 'الشخص الخامس')}
-        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center"><button class="btn btn-primary" type="submit">${icon('send')} قدّم فكرتك</button><span class="hint" id="saved" style="font-size:13px;color:var(--muted)"></span></div>
+          <fieldset class="wstep" data-step="2"><legend>تفاصيل الفكرة</legend><p class="lead">هذا قلب الطلب. اكتب بلغتك البسيطة.</p>
+            <div class="q"><label for="problem">ما المشكلة التي تعالجها المبادرة؟ ${counter('problem', 1200)}</label><textarea class="fin" id="problem" name="problem" maxlength="1200" placeholder="صف المشكلة كما تراها في مجتمعك، ومن يتأثر بها." data-req></textarea><div class="err">صف المشكلة</div></div>
+            <div class="q"><label for="goals">أهداف المبادرة ${counter('goals', 900)}</label><textarea class="fin" id="goals" name="goals" maxlength="900" placeholder="هدف في كل سطر" data-req></textarea><div class="help">اكتب كل هدف في سطر مستقل.</div><div class="err">اكتب هدفًا واحدًا على الأقل</div></div>
+            <div class="q"><label for="activities">الأنشطة ${counter('activities', 1500)}</label><textarea class="fin" id="activities" name="activities" maxlength="1500" placeholder="النشاط — الوصف — مدة التنفيذ" data-req></textarea><div class="err">اذكر أنشطة المبادرة</div></div>
+            <div class="q"><label for="budget">الميزانية المتوقعة</label><div class="money"><input class="fin" id="budget" name="budget" inputmode="decimal" dir="ltr" placeholder="800" data-req><select class="fin" name="currency" aria-label="العملة"><option value="USD">دولار</option><option value="ILS">شيكل</option><option value="EUR">يورو</option></select></div><div class="err">اكتب الميزانية التقديرية</div></div>
+          </fieldset>
+
+          <fieldset class="wstep" data-step="3"><legend>فريق المبادرة</legend><p class="lead">من سينفّذ الفكرة معك؟</p>
+            <div class="q"><span class="ql">عدد أعضاء الفريق</span><div class="stepper"><button type="button" data-d="-1" aria-label="إنقاص">−</button><output id="tsOut">شخص واحد</output><button type="button" data-d="1" aria-label="زيادة">+</button></div><input type="hidden" name="teamSize" value="1"></div>
+            <div class="members" id="members">${[1, 2, 3, 4, 5].map(member).join('')}</div>
+          </fieldset>
+
+          <fieldset class="wstep" data-step="4"><legend>راجع طلبك</legend><p class="lead">تأكد من البيانات، ويمكنك تعديل أي جزء قبل الإرسال.</p><div class="review" id="review"></div></fieldset>
+        </div>
+        <div class="wiz-nav">
+          <button type="button" class="btn btn-outline" id="prev">${icon('arrowR')} السابق</button>
+          <span class="saved" id="saved">حُفظت المسودة</span>
+          <button type="button" class="btn btn-blue" id="next">التالي ${icon('arrowL')}</button>
+          <button type="submit" class="btn btn-primary" id="send" hidden>${icon('send')} أرسل الطلب</button>
+        </div>
       </form>
-      <aside>
-        <div class="form-card" style="margin-bottom:20px"><h3 style="margin-top:0">كيف يتم التقديم؟</h3><div class="steps">${F.steps.map((s) => `<div class="step"><div><b>${esc(s.title)}</b><span>${esc(s.text)}</span></div></div>`).join('')}</div></div>
-        <div class="form-card"><h3 style="margin-top:0">أسئلة شائعة</h3>${F.faq.map((q) => `<details class="faq"><summary>${esc(q.q)}</summary><p>${esc(q.a)}</p></details>`).join('')}</div>
+      <aside class="wiz-side">
+        <div class="tip" id="tip"></div>
+        <div class="side-card"><h3>أسئلة شائعة</h3>${F.faq.map((q) => `<details class="faq"><summary>${esc(q.q)}</summary><p>${esc(q.a)}</p></details>`).join('')}</div>
       </aside>
     </div></section>`;
 
-    const form = document.getElementById('idea');
-    const sync = () => {
-      const pwd = form.form.value === 'pwd';
-      form.querySelectorAll('.pwd-only').forEach((e) => { e.hidden = !pwd; });
-      const n = +form.teamSize.value;
-      form.querySelectorAll('.member-set').forEach((f) => { const on = +f.dataset.n <= n; f.hidden = !on; f.querySelectorAll('input:not([type=date])').forEach((x) => { x.required = on; }); });
+    const form = document.getElementById('idea'); const $ = (sel) => form.querySelector(sel);
+    const steps = [...form.querySelectorAll('.wstep')]; let cur = 0;
+    const NUM = ['شخص واحد', 'شخصان', 'ثلاثة أشخاص', 'أربعة أشخاص', 'خمسة أشخاص'];
+    const syncTeam = () => { const n = +form.teamSize.value; document.getElementById('tsOut').textContent = NUM[n - 1]; form.querySelectorAll('.mcard').forEach((m) => { m.hidden = +m.dataset.n > n; }); form.querySelectorAll('.stepper button').forEach((b) => { b.disabled = (b.dataset.d < 0 && n <= 1) || (b.dataset.d > 0 && n >= 5); }); };
+    const syncKind = () => { const pwd = form.form.value === 'pwd'; form.querySelectorAll('.pwd-only').forEach((e) => { e.hidden = !pwd; }); };
+    const syncCounts = () => form.querySelectorAll('[data-cnt]').forEach((c) => { const el = form.querySelector('#' + c.dataset.cnt); c.textContent = `${el.value.length} / ${c.dataset.max}`; });
+    const show = (k, back) => {
+      steps.forEach((s, i) => { s.classList.toggle('on', i === k); s.classList.toggle('back', !!back); });
+      form.querySelectorAll('.wiz-steps li').forEach((li, i) => { li.className = i < k ? 'done' : i === k ? 'now' : ''; li.querySelector('.d').innerHTML = i < k ? icon('check') : i + 1; });
+      document.getElementById('bar').style.width = `${(k / (STEPS.length - 1)) * 100}%`;
+      $('#prev').style.visibility = k ? 'visible' : 'hidden';
+      $('#next').hidden = k === STEPS.length - 1; $('#send').hidden = k !== STEPS.length - 1;
+      const [tt, tp] = TIPS[k]; const tip = document.getElementById('tip');
+      tip.innerHTML = `<div class="tip-anim"><span class="ti">${icon(STEPS[k][1])}</span><b>${esc(tt)}</b><p>${esc(tp)}</p></div>`;
+      if (k === STEPS.length - 1) renderReview();
+      cur = k; save();
+      if (window.scrollY > form.offsetTop) form.scrollIntoView({ behavior: 'smooth', block: 'start' });
     };
-    // استعادة ما حُفظ تلقائياً
-    try {
-      const saved = JSON.parse(IB.safeGet(AUTO) || 'null');
-      if (saved) Object.entries(saved).forEach(([k, v]) => {
-        const els = form.querySelectorAll(`[name="${k}"]`);
-        els.forEach((el) => { if (el.type === 'checkbox' || el.type === 'radio') el.checked = [].concat(v).includes(el.value) || (el.type === 'checkbox' && el.name === 'consent' && v === true); else el.value = v; });
-      });
-    } catch (e) { /* ignore */ }
-    if (qs('form') === 'pwd') form.querySelector('[value=pwd]').checked = true;
-    sync();
+    const validate = (k) => {
+      let ok = true; const st = steps[k];
+      st.querySelectorAll('.q').forEach((q) => q.classList.remove('bad'));
+      st.querySelectorAll('[data-req]').forEach((el) => { if (el.closest('[hidden]')) return; let good = el.value.trim().length > 0;
+        if (good && el.dataset.email !== undefined) good = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(el.value.trim());
+        if (good && el.dataset.phone !== undefined) good = el.value.replace(/\D/g, '').length >= 9;
+        if (!good) { el.closest('.q').classList.add('bad'); ok = false; } });
+      st.querySelectorAll('[data-req-check]').forEach((el) => { if (!el.checked) { el.closest('.q').classList.add('bad'); ok = false; } });
+      st.querySelectorAll('[data-group]').forEach((g) => { if (!g.querySelector('input:checked')) { g.classList.add('bad'); ok = false; } });
+      if (!ok) { const first = st.querySelector('.q.bad'); first.scrollIntoView({ behavior: 'smooth', block: 'center' }); const f = first.querySelector('input,textarea'); if (f) setTimeout(() => f.focus({ preventScroll: true }), 300); }
+      return ok;
+    };
+    const collect = () => { const o = {}; new FormData(form).forEach((v, k) => { if (k === 'domains' || k === 'audiences') (o[k] = o[k] || []).push(v); else o[k] = v; }); o.consent = form.consent.checked; o._step = cur; return o; };
+    let t; const save = () => { clearTimeout(t); t = setTimeout(() => { IB.safeSet(AUTO, JSON.stringify(collect())); const s = $('#saved'); s.classList.add('on'); clearTimeout(s._t); s._t = setTimeout(() => s.classList.remove('on'), 1800); }, 400); };
+    const renderReview = () => {
+      const o = collect(); const n = +o.teamSize;
+      const sec = (title, k, rows) => `<div class="rv"><header><b>${title}</b><button type="button" data-go="${k}">تعديل</button></header><dl>${rows.filter((r) => r[1]).map(([l, v]) => `<dt>${l}</dt><dd>${esc(v)}</dd>`).join('')}</dl></div>`;
+      document.getElementById('review').innerHTML =
+        sec('النموذج', 0, [['النوع', o.form === 'pwd' ? 'مبادرة دامجة لذوي الإعاقة' : 'مبادرة مجتمعية']]) +
+        sec('المبادرة', 1, [['الاسم', o.title], ['المجالات', (o.domains || []).join('، ')], ['المكان', o.location], ['المدة', o.duration], ['الفئات', (o.audiences || []).join('، ')], ['المواءمة', o.form === 'pwd' ? o.access : '']]) +
+        sec('التفاصيل', 2, [['المشكلة', o.problem], ['الأهداف', o.goals], ['الأنشطة', o.activities], ['الميزانية', o.budget ? `${o.budget} ${{ USD: 'دولار', ILS: 'شيكل', EUR: 'يورو' }[o.currency]}` : '']]) +
+        sec('الفريق', 3, Array.from({ length: n }, (_, i) => [i ? `العضو ${i + 1}` : 'شخص التواصل', [o[`m${i + 1}_name`], o[`m${i + 1}_phone`], o[`m${i + 1}_email`]].filter(Boolean).join(' · ')]));
+    };
 
-    const collect = () => {
-      const o = {};
-      new FormData(form).forEach((v, k) => { if (k === 'domains' || k === 'audiences') (o[k] = o[k] || []).push(v); else o[k] = v; });
-      o.consent = form.consent.checked;
-      return o;
-    };
-    let t;
-    form.addEventListener('input', () => { sync(); clearTimeout(t); t = setTimeout(() => { IB.safeSet(AUTO, JSON.stringify(collect())); document.getElementById('saved').textContent = 'تم حفظ المسودة تلقائيًا على جهازك'; }, 500); });
-    form.addEventListener('change', sync);
+    // استعادة المسودة
+    try {
+      const sv = JSON.parse(IB.safeGet(AUTO) || 'null');
+      if (sv) Object.entries(sv).forEach(([k, v]) => form.querySelectorAll(`[name="${k}"]`).forEach((el) => { if (el.type === 'checkbox' || el.type === 'radio') el.checked = k === 'consent' ? !!v : [].concat(v).includes(el.value); else el.value = v; }));
+      if (qs('form') === 'pwd') form.querySelector('[name=form][value=pwd]').checked = true;
+      syncKind(); syncTeam(); syncCounts();
+      show(sv && sv._step ? Math.min(sv._step, 3) : 0);
+    } catch (e) { syncKind(); syncTeam(); show(0); }
+
+    form.addEventListener('input', (e) => { const q = e.target.closest('.q'); if (q) q.classList.remove('bad'); syncCounts(); save(); });
+    form.addEventListener('change', (e) => { if (e.target.name === 'form') syncKind(); const g = e.target.closest('[data-group]'); if (g) g.classList.remove('bad'); save(); });
+    form.addEventListener('click', (e) => {
+      const qb = e.target.closest('.quick button'); if (qb) { const inp = form.querySelector('#' + qb.parentElement.dataset.for); inp.value = qb.textContent; inp.dispatchEvent(new Event('input', { bubbles: true })); }
+      const sb = e.target.closest('.stepper button'); if (sb) { form.teamSize.value = Math.min(5, Math.max(1, +form.teamSize.value + +sb.dataset.d)); syncTeam(); save(); }
+      const go = e.target.closest('[data-go]'); if (go) show(+go.dataset.go, true);
+      const li = e.target.closest('.wiz-steps li.done'); if (li) show(+li.dataset.k, true);
+    });
+    $('#next').addEventListener('click', () => { if (validate(cur)) show(cur + 1); });
+    $('#prev').addEventListener('click', () => show(cur - 1, true));
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const msg = document.getElementById('msg');
-      const o = collect();
-      const missing = [...form.querySelectorAll('[required]')].filter((x) => !x.closest('[hidden]') && !(x.type === 'checkbox' ? x.checked : x.value.trim()));
-      if (!o.domains || !o.audiences) missing.push(form.querySelector('[name=domains]'));
-      if (missing.length) {
-        msg.innerHTML = `<div class="notice warn" role="alert">يرجى تعبئة الحقول الإلزامية (${missing.length}) والموافقة على شروط جمع البيانات.</div>`;
-        (missing[0].focus && missing[0].focus()); msg.scrollIntoView({ behavior: 'smooth', block: 'center' }); return;
-      }
-      const members = [];
+      for (let k = 0; k < STEPS.length - 1; k++) if (!validate(k)) { show(k, true); setTimeout(() => validate(k), 60); return; }
+      const o = collect(); const members = [];
       for (let n = 1; n <= +o.teamSize; n++) members.push({ name: o[`m${n}_name`], dob: o[`m${n}_dob`], phone: o[`m${n}_phone`], email: o[`m${n}_email`] });
-      const rec = {
-        id: 'S' + Date.now().toString(36), receivedAt: new Date().toISOString(), status: 'new', form: o.form,
-        title: o.title, domains: o.domains, location: o.location, duration: o.duration, audiences: o.audiences, problem: o.problem,
-        goals: o.goals, activities: o.activities, budget: o.budget, access: o.access || '', members, notes: '',
-      };
-      const endpoint = (S.forms && S.forms.endpoint) || '';
-      let sent = false;
-      if (endpoint) {
-        try { const r = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(rec) }); sent = r.ok; } catch (err) { sent = false; }
-      }
-      // نسخة محلية تظهر في لوحة التحكم على نفس الجهاز
-      try { const list = JSON.parse(IB.safeGet('ib_submissions') || '[]'); list.unshift(rec); IB.safeSet('ib_submissions', JSON.stringify(list)); } catch (err) { /* ignore */ }
+      const cur$ = { USD: 'دولار', ILS: 'شيكل', EUR: 'يورو' }[o.currency] || '';
+      const rec = { id: 'IB-' + Date.now().toString(36).toUpperCase().slice(-6), receivedAt: new Date().toISOString(), status: 'new', form: o.form, title: o.title, domains: o.domains || [], location: o.location, duration: o.duration,
+        audiences: o.audiences || [], problem: o.problem, goals: o.goals, activities: o.activities, budget: `${o.budget} ${cur$}`.trim(), access: o.form === 'pwd' ? (o.access || '') : '', members, notes: '' };
+      const btn = $('#send'); btn.disabled = true; btn.innerHTML = 'جارٍ الإرسال…';
+      const endpoint = (S.forms && S.forms.endpoint) || ''; let sent = false;
+      if (endpoint) { try { const r = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(rec) }); sent = r.ok; } catch (err) { sent = false; } }
+      try { const list = JSON.parse(IB.safeGet('ib_submissions') || '[]'); list.unshift(rec); IB.safeSet('ib_submissions', JSON.stringify(list)); } catch (err) { /* */ }
       IB.safeDel(AUTO);
-      const mail = `mailto:${S.contact.ibEmail}?subject=${encodeURIComponent('فكرة مبادرة: ' + rec.title)}&body=${encodeURIComponent(`اسم المبادرة: ${rec.title}\nالمجالات: ${rec.domains.join('، ')}\nالموقع: ${rec.location}\nالمدة: ${rec.duration}\nالفئات: ${rec.audiences.join('، ')}\n\nالمشكلة:\n${rec.problem}\n\nالأهداف:\n${rec.goals}\n\nالأنشطة:\n${rec.activities}\n\nالميزانية: ${rec.budget}\n\nالفريق:\n${members.map((m) => `${m.name} – ${m.phone} – ${m.email}`).join('\n')}`)}`;
-      form.innerHTML = `<div class="notice ok" role="status" style="font-size:16px"><b>شكرًا لك! تم استلام فكرة «${esc(rec.title)}».</b><br>رقم الطلب: <b dir="ltr">${rec.id}</b>. سيدرس فريق بنك المبادرات الطلب ويتواصل مع شخص التواصل.</div>
-        ${sent ? '' : `<p>لضمان وصول طلبك، أرسل نسخة عبر البريد الإلكتروني:</p><a class="btn btn-primary" href="${mail}">${icon('mail')} إرسال نسخة بالبريد</a>`}
-        <p style="margin-top:20px"><a class="btn btn-ghost btn-sm" style="color:var(--orange)" href="${url('initiatives.html')}">تصفّح مبادرات ملهمة</a></p>`;
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      const mail = `mailto:${S.contact.ibEmail}?subject=${encodeURIComponent('فكرة مبادرة: ' + rec.title + ' (' + rec.id + ')')}&body=${encodeURIComponent(`اسم المبادرة: ${rec.title}\nالمجالات: ${rec.domains.join('، ')}\nالموقع: ${rec.location}\nالمدة: ${rec.duration}\nالفئات: ${rec.audiences.join('، ')}\n\nالمشكلة:\n${rec.problem}\n\nالأهداف:\n${rec.goals}\n\nالأنشطة:\n${rec.activities}\n\nالميزانية: ${rec.budget}\n\nالفريق:\n${members.map((m) => `${m.name} – ${m.phone} – ${m.email}`).join('\n')}`)}`;
+      form.innerHTML = `<div class="done-screen"><svg class="check" viewBox="0 0 100 100"><circle cx="50" cy="50" r="45"/><path d="M30 52 L44 66 L71 37"/></svg>
+        <h2>وصلتنا فكرتك! شكرًا لك</h2><p style="color:var(--muted);max-width:30em;margin:0 auto">«${esc(rec.title)}» الآن لدى فريق بنك المبادرات، وسيتواصل مع شخص التواصل بعد دراسة الطلب.</p>
+        <div>رقم الطلب</div><span class="ref">${rec.id}</span>
+        ${sent ? '' : `<p style="color:var(--muted);font-size:14px">لضمان الوصول، أرسل نسخة من طلبك بالبريد الإلكتروني أيضًا.</p>`}
+        <div class="acts">${sent ? '' : `<a class="btn btn-primary" href="${mail}">${icon('mail')} إرسال نسخة بالبريد</a>`}<a class="btn btn-outline" href="${url('initiatives.html')}">تصفّح مبادرات ملهمة</a></div></div>`;
+      document.getElementById('tip').innerHTML = `<div class="tip-anim"><span class="ti">${icon('check')}</span><b>ماذا بعد؟</b><p>يدرس الفريق الطلبات بشكل دوري. احتفظ برقم الطلب للمتابعة عبر ${esc(S.contact.ibEmail)}.</p></div>`;
+      form.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
   }
 
