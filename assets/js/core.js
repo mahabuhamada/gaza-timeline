@@ -78,14 +78,13 @@
   const socialIcon = { Facebook: 'facebook', Instagram: 'instagram', X: 'x_', LinkedIn: 'linkedin', YouTube: 'youtube', TikTok: 'tiktok' };
 
   const NAV = [
-    ['index.html', 'الرئيسية', 'home'],
-    ['initiatives.html', 'مكتبة المبادرات', 'initiatives'],
-    ['ideas.html', 'بنك الأفكار', 'ideas'],
-    ['news.html', 'الإعلانات', 'news'],
-    ['about.html', 'من نحن', 'about'],
-    ['partners.html', 'الشركاء', 'partners'],
-    ['support.html', 'ادعم البنك', 'support'],
-    ['contact.html', 'تواصل معنا', 'contact'],
+    ['index.html', 'الرئيسية', 'home', 'home'],
+    ['about.html', 'من نحن', 'about', 'people'],
+    ['initiatives.html', 'مكتبة المبادرات', 'initiatives', 'grid'],
+    ['ideas.html', 'بنك الأفكار', 'ideas', 'bulb'],
+    ['news.html', 'الإعلانات', 'news', 'megaphone'],
+    ['partners.html', 'الشركاء', 'partners', 'hands'],
+    ['support.html', 'ادعم البنك', 'support', 'spark'],
   ];
 
   function header(active) {
@@ -94,22 +93,27 @@
 <a class="skip" href="#main">تخطَّ إلى المحتوى</a>
 <header class="site-header">
   <div class="wrap">
-    <a class="brand" href="${url('index.html')}" aria-label="${esc(d.site.brand.name)} – الرئيسية">
-      <img src="${src(d.site.brand.logoLight)}" alt="${esc(d.site.brand.name)}" width="160" height="45">
-    </a>
-    <nav class="nav" id="nav" aria-label="القائمة الرئيسية">
-      ${NAV.map(([h, t, k]) => `<a href="${url(h)}"${k === active ? ' aria-current="page"' : ''}>${t}</a>`).join('')}
-    </nav>
-    <div class="header-cta">
-      <a class="btn btn-primary btn-sm" href="${url('submit.html')}">${icon('bulb')}<span class="btn-text">قدّم فكرتك</span></a>
+    <div class="nav-shell">
+      <a class="brand" href="${url('index.html')}" aria-label="${esc(d.site.brand.name)} – الرئيسية">
+        <img src="${src(d.site.brand.logo)}" alt="${esc(d.site.brand.name)}" width="150" height="42">
+      </a>
+      <nav class="nav" id="nav" aria-label="القائمة الرئيسية">
+        ${NAV.map(([h, t, k, ic]) => `<a href="${url(h)}"${k === active ? ' aria-current="page"' : ''}>${icon(ic)}${t}</a>`).join('')}
+      </nav>
+      <div class="header-cta">
+        <a class="icon-btn" href="${url('initiatives.html')}" aria-label="ابحث في المبادرات">${icon('search')}</a>
+        <a class="btn btn-white btn-sm" href="${url('contact.html')}"><span class="btn-text">تواصل معنا</span><span class="sr-only">تواصل</span>${icon('mail')}</a>
+        <a class="btn btn-primary btn-sm" href="${url('submit.html')}">${icon('bulb')}<span class="btn-text">قدّم فكرتك</span></a>
+        <button class="icon-btn menu-btn" aria-expanded="false" aria-controls="nav" aria-label="القائمة">${icon('menu')}</button>
+      </div>
     </div>
-    <button class="menu-btn" aria-expanded="false" aria-controls="nav" aria-label="القائمة">${icon('menu')}</button>
   </div>
 </header>`;
   }
 
   function footer() {
     const d = data(); const s = d.site;
+    const col = (t, items) => `<div><h4>${t}</h4><ul>${items.map(([h, l]) => `<li><a href="${url(h)}">${l}</a></li>`).join('')}</ul></div>`;
     return `
 <footer class="site-footer">
   <div class="wrap">
@@ -117,39 +121,28 @@
       <div class="about">
         <img src="${src(s.brand.logoLight)}" alt="${esc(s.brand.name)}" width="160" height="45">
         <p>${esc(s.about.text[0])}</p>
-        <div class="socials">${s.contact.social.map((x) => `<a href="${esc(x.url)}" target="_blank" rel="noopener" aria-label="${esc(x.name)}">${icon(socialIcon[x.name] || 'link')}</a>`).join('')}</div>
+        <a class="btn btn-glass btn-sm" href="${url('submit.html')}">${icon('bulb')} قدّم فكرتك</a>
       </div>
+      ${col('البنك', [['about.html', 'من نحن'], ['partners.html', 'الشركاء'], ['support.html', 'ادعم بنك المبادرات'], ['contact.html', 'تواصل معنا']])}
+      ${col('المحتوى', [['initiatives.html', 'مكتبة المبادرات'], ['ideas.html', 'بنك الأفكار'], ['news.html', 'الإعلانات والأخبار']])}
+      ${col('شارك', [['submit.html', 'قدّم فكرتك'], ['submit.html?form=pwd', 'مبادرة لذوي الإعاقة'], ['admin/index.html', 'لوحة التحكم']])}
       <div>
-        <h4>روابط سريعة</h4>
-        <ul>${NAV.slice(1).map(([h, t]) => `<li><a href="${url(h)}">${t}</a></li>`).join('')}</ul>
-      </div>
-      <div>
-        <h4>شارك معنا</h4>
+        <h4>تواصل</h4>
         <ul>
-          <li><a href="${url('submit.html')}">قدّم فكرتك</a></li>
-          <li><a href="${url('submit.html?form=pwd')}">مبادرة لذوي الإعاقة</a></li>
-          <li><a href="${url('support.html')}">كن شريكًا</a></li>
-          <li><a href="${url('privacy.html')}">سياسة الخصوصية</a></li>
-          <li><a href="${url('terms.html')}">الشروط والأحكام</a></li>
-          <li><a href="${url('admin/index.html')}">لوحة التحكم</a></li>
-        </ul>
-      </div>
-      <div>
-        <h4>تواصل مباشر</h4>
-        <ul>
-          <li><a href="tel:${esc(s.contact.phone)}" dir="ltr">${esc(s.contact.phone)}</a></li>
           <li><a href="mailto:${esc(s.contact.ibEmail)}">${esc(s.contact.ibEmail)}</a></li>
-          <li><a href="mailto:${esc(s.contact.email)}">${esc(s.contact.email)}</a></li>
-          <li>${esc(s.contact.offices[0].city)}: ${esc(s.contact.offices[0].address)}</li>
+          <li><a href="tel:${esc(s.contact.phone)}" dir="ltr">${esc(s.contact.phone)}</a></li>
+          <li>${esc(s.contact.offices[0].city)} · فلسطين</li>
         </ul>
+        <div class="socials" style="margin-top:14px">${s.contact.social.map((x) => `<a href="${esc(x.url)}" target="_blank" rel="noopener" aria-label="${esc(x.name)}">${icon(socialIcon[x.name] || 'link')}</a>`).join('')}</div>
       </div>
     </div>
     <div class="footer-bottom">
       <span>© ${new Date().getFullYear()} ${esc(s.brand.name)} — مبادرة من <a href="${esc(s.brand.orgUrl)}" target="_blank" rel="noopener">${esc(s.brand.org)}</a></span>
-      <span>شباب يصنعون الواقع… ويعيدون رسم المستقبل</span>
+      <span><a href="${url('privacy.html')}">سياسة الخصوصية</a> · <a href="${url('terms.html')}">الشروط والأحكام</a></span>
     </div>
   </div>
-</footer>`;
+</footer>
+<a class="fab" href="${url('submit.html')}">${icon('bulb')} قدّم فكرتك</a>`;
   }
 
   function mountChrome(active) {

@@ -1,9 +1,9 @@
 /* لوحة تحكم بنك المبادرات — على نظام تصميم لوحة تحكم المنتدى الجديدة، بألوان بنك المبادرات */
 :root{
   --blue:#05629F; --teal:#1CB7B3; --orange:#F27731; --yellow:#F2B12F; --red:#C93C3C; --violet:#6B5BD2;
-  --ink:#122131; --ink-2:#465668; --ink-3:#7C8B9A;
+  --ink:#101740; --ink-2:#465078; --ink-3:#7C84A0;
   --bg:#F2F5F9; --card:#FFFFFF; --glass:rgba(255,255,255,.72); --line:#E2E8EF; --soft:#EFF4F9;
-  --side-1:#0F2539; --side-2:#0A1A29;
+  --side-1:#161E55; --side-2:#0B1033;
   --r:12px; --ease:cubic-bezier(.22,.8,.25,1);
   --shadow:0 1px 2px rgba(18,33,49,.04),0 10px 28px -16px rgba(18,33,49,.22);
   color-scheme:light;
