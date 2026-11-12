@@ -507,7 +507,12 @@
       <div class="q"><label for="m${n}_phone">رقم الجوال</label><input class="fin" type="tel" dir="ltr" id="m${n}_phone" name="m${n}_phone" autocomplete="tel" placeholder="059XXXXXXX" data-req data-phone><div class="err">رقم جوال صحيح من 9 أرقام على الأقل</div></div>
       <div class="q"><label for="m${n}_email">البريد الإلكتروني</label><input class="fin" type="email" dir="ltr" id="m${n}_email" name="m${n}_email" autocomplete="email" placeholder="name@example.com" data-req data-email><div class="err">بريد إلكتروني صحيح</div></div></div></div>`;
 
-    main.innerHTML = pageHero(F.title, F.intro, [['قدّم فكرتك']]) + `
+    main.innerHTML = `<section class="page-hero submit-hero"><div class="wrap"><div class="box">
+      <nav class="crumbs" aria-label="مسار التنقل"><a href="${url('index.html')}">الرئيسية</a><span aria-hidden="true">/</span><span>قدّم فكرتك</span></nav>
+      <h1>قدّم <span class="grad-text">فكرتك</span></h1>
+      <p>${esc(F.title)}. ${esc(F.intro)}</p>
+      <ul class="sh-badges"><li>${icon('check')}التقديم مجاني</li><li>${icon('cal')}نحو 10 دقائق</li><li>${icon('folder')}حفظ تلقائي للمسودة</li><li>${icon('people')}نموذج دامج لذوي الإعاقة</li></ul>
+    </div></div></section>` + `
     <section class="section" style="padding-top:40px"><div class="wrap wiz-shell">
       <form class="wiz" id="idea" novalidate>
         <div class="wiz-top"><ol class="wiz-steps">${STEPS.map(([t, ic], k) => `<li data-k="${k}"><span class="d">${k + 1}</span>${t}</li>`).join('')}</ol><div class="wiz-bar"><i id="bar"></i></div></div>
