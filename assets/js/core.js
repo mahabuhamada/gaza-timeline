@@ -16,6 +16,9 @@
   function published() { return window.IB_DATA ? JSON.parse(JSON.stringify(window.IB_DATA)) : null; }
   function draft() { const r = safeGet(DRAFT_KEY); if (!r) return null; try { return JSON.parse(r); } catch (e) { return null; } }
   function previewOn() { return safeGet(PREVIEW_KEY) === '1' && !!draft(); }
+  // صفحة مولّدة مسبقًا عند البناء (لمحركات البحث) / بيئة التوليد نفسها
+  const built = !!document.querySelector('meta[name="ib-built"]');
+  const prerender = /jsdom/i.test(navigator.userAgent || '');
 
   /** البيانات التي يعرضها الموقع: المنشورة، أو المسودة إن فُعّلت المعاينة من اللوحة */
   function data() { return previewOn() ? draft() : published(); }
@@ -146,7 +149,126 @@
 <a class="fab" href="${url('submit.html')}">${icon('bulb')} قدّم فكرتك</a>`;
   }
 
+  /* ====== الوصول للجميع (لوحة إتاحة احترافية) ====== */
+  const A11Y_KEY = 'ib_a11y';
+  const AI = {
+    a11y: '<circle cx="12" cy="4.2" r="2"/><path d="M4.5 8.2c2.5.9 5 1.3 7.5 1.3s5-.4 7.5-1.3M12 9.5v4.5M12 14l-3.2 6.5M12 14l3.2 6.5"/>',
+    text: '<path d="M4 7V5h11v2M9.5 5v14M7 19h5M14 12v-1.5h6V12M17 10.5V19M15.5 19h3"/>',
+    lh: '<path d="M10 6h10M10 12h10M10 18h10M5 4v16M3 6l2-2 2 2M3 18l2 2 2-2"/>',
+    ls: '<path d="M5 15l3-9 3 9M6 12.5h4M13 15V6h3a2 2 0 0 1 0 4h-3 3.5a2.5 2.5 0 0 1 0 5H13M3 19h18M3 19l2-1.5M3 19l2 1.5M21 19l-2-1.5M21 19l-2 1.5"/>',
+    font: '<path d="M6 19 11 5h2l5 14M8 14h8"/>',
+    heads: '<path d="M5 5v14M14 5v14M5 12h9M18 9l2-1.5V19"/>',
+    links: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
+    align: '<path d="M4 6h16M7 10h10M4 14h16M7 18h10"/>',
+    dark: '<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>',
+    light: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+    contrast: '<circle cx="12" cy="12" r="8.5"/><path d="M12 3.5v17a8.5 8.5 0 0 0 0-17z" fill="currentColor"/>',
+    satLow: '<path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/><path d="M8 15h8"/>',
+    satHigh: '<path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/><path d="M12 11v7M8.5 14.5h7"/>',
+    mono: '<circle cx="12" cy="12" r="8.5"/><path d="M5 18 18 5"/>',
+    motion: '<rect x="6.5" y="5" width="3.5" height="14" rx="1"/><rect x="14" y="5" width="3.5" height="14" rx="1"/>',
+    img: '<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.8"/><path d="M21 16l-5-5-8 8M3 3l18 18"/>',
+    guide: '<rect x="3" y="9.5" width="18" height="5" rx="1.5"/><path d="M7 9.5V12M11 9.5V12M15 9.5V12"/>',
+    mask: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M3 14h18" stroke-dasharray="2 2"/>',
+    cursor: '<path d="M5 3l14 7-6 2-2 6z"/>',
+    focus: '<rect x="4" y="7" width="16" height="10" rx="3"/><path d="M2 5V3h2M20 3h2v2M22 19v2h-2M4 21H2v-2"/>',
+    reset: '<path d="M4 12a8 8 0 1 0 2.3-5.6M4 4v4h4"/>',
+    eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+    bolt: '<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>',
+    brain: '<path d="M9 4a3 3 0 0 0-3 3 3 3 0 0 0-2 5 3 3 0 0 0 2 5 3 3 0 0 0 3 3V4zM15 4a3 3 0 0 1 3 3 3 3 0 0 1 2 5 3 3 0 0 1-2 5 3 3 0 0 1-3 3V4z"/>',
+    book: '<path d="M4 4h6a3 3 0 0 1 3 3v13a2 2 0 0 0-2-2H4zM20 4h-6a3 3 0 0 0-3 3v13a2 2 0 0 1 2-2h7z"/>',
+    kbd: '<rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/>',
+    info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.01"/>',
+    chev: '<path d="m9 6 6 6-6 6"/>',
+  };
+  const ai = (k) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${AI[k]}</svg>`;
+  // [المفتاح، العنوان، الأيقونة، عدد المستويات (1 = تشغيل/إيقاف)، مجموعة حصرية]
+  const A11Y_GROUPS = [
+    ['تعديل المحتوى', [['text', 'حجم النص', 'text', 4], ['lh', 'تباعد الأسطر', 'lh', 3], ['ls', 'تباعد الأحرف', 'ls', 3], ['font', 'خط سهل القراءة', 'font', 1], ['heads', 'إبراز العناوين', 'heads', 1], ['links', 'إبراز الروابط', 'links', 1], ['align', 'محاذاة النص', 'align', 1]]],
+    ['تعديل الألوان', [['dark', 'تباين داكن', 'dark', 1, 'c'], ['light', 'تباين فاتح', 'light', 1, 'c'], ['contrast', 'تباين عالٍ', 'contrast', 1, 'c'], ['satLow', 'تشبّع منخفض', 'satLow', 1, 's'], ['satHigh', 'تشبّع عالٍ', 'satHigh', 1, 's'], ['mono', 'أحادي اللون', 'mono', 1, 's']]],
+    ['التنقل والتركيز', [['motion', 'إيقاف الحركة', 'motion', 1], ['img', 'إخفاء الصور', 'img', 1], ['guide', 'دليل القراءة', 'guide', 1], ['mask', 'قناع القراءة', 'mask', 1], ['cursor', 'مؤشر كبير', 'cursor', 1], ['focus', 'إبراز التركيز', 'focus', 1]]],
+  ];
+  const A11Y_PROFILES = [
+    ['vision', 'ضعف البصر', 'eye', { text: 2, contrast: 1, heads: 1, cursor: 1 }],
+    ['seizure', 'آمن لنوبات الصرع', 'bolt', { motion: 1, satLow: 1 }],
+    ['adhd', 'تشتت الانتباه', 'brain', { mask: 1, motion: 1, heads: 1 }],
+    ['dyslexia', 'صعوبات القراءة', 'book', { font: 1, lh: 2, ls: 1, guide: 1 }],
+    ['keyboard', 'التنقل بلوحة المفاتيح', 'kbd', { focus: 1, links: 1 }],
+  ];
+  const A11Y_ITEMS = A11Y_GROUPS.flatMap(([, it]) => it);
+  function a11yState() { try { return JSON.parse(safeGet(A11Y_KEY) || '{}') || {}; } catch (e) { return {}; } }
+  function a11yApply(st) {
+    const h = document.documentElement;
+    A11Y_ITEMS.forEach(([k]) => { const v = st[k] || 0; h.classList.toggle('a11y-' + k, !!v); if (v) h.setAttribute('data-a11y-' + k, v); else h.removeAttribute('data-a11y-' + k); });
+    h.style.setProperty('--a11y-scale', String(1 + (st.text || 0) * 0.1));
+    const need = (id, on, build) => { let el = document.getElementById(id); if (on && !el) { el = build(); document.body.appendChild(el); } else if (!on && el) el.remove(); };
+    need('a11y-guide', st.guide, () => { const g = document.createElement('div'); g.id = 'a11y-guide'; g.setAttribute('aria-hidden', 'true'); return g; });
+    need('a11y-mask', st.mask, () => { const m = document.createElement('div'); m.id = 'a11y-mask'; m.setAttribute('aria-hidden', 'true'); m.innerHTML = '<i></i><i></i>'; return m; });
+    if (!a11yApply.bound) {
+      a11yApply.bound = true;
+      document.addEventListener('pointermove', (e) => {
+        const g = document.getElementById('a11y-guide'); if (g) g.style.top = e.clientY + 'px';
+        const m = document.getElementById('a11y-mask'); if (m) { m.firstChild.style.height = Math.max(0, e.clientY - 60) + 'px'; m.lastChild.style.top = (e.clientY + 60) + 'px'; }
+      }, { passive: true });
+    }
+  }
+  function a11yWidget() {
+    const S = data() || {}; const conf = S.a11y || {};
+    if (conf.enabled === false) return;
+    const st = a11yState();
+    const tile = ([k, l, i, lv, grp]) => `<button type="button" class="a11y-tile" data-k="${k}" data-lv="${lv}"${grp ? ` data-g="${grp}"` : ''} aria-pressed="false">${ai(i)}<span>${l}</span>${lv > 1 ? `<span class="lv" aria-hidden="true">${Array.from({ length: lv }, () => '<i></i>').join('')}</span>` : ''}<b class="ok" aria-hidden="true"></b></button>`;
+    document.body.insertAdjacentHTML('beforeend', `
+<div class="a11y" id="a11y">
+  <button type="button" class="a11y-btn" id="a11y-btn" aria-expanded="false" aria-controls="a11y-panel" aria-label="فتح أدوات الوصول للجميع (Alt+A)" title="الوصول للجميع">${ai('a11y')}</button>
+  <div class="a11y-scrim" data-close></div>
+  <section class="a11y-panel" id="a11y-panel" role="dialog" aria-modal="true" aria-labelledby="a11y-ttl" hidden>
+    <header class="a11y-head"><span class="a11y-ic">${ai('a11y')}</span><div><h2 id="a11y-ttl">الوصول للجميع</h2><small>اضبط الموقع بما يناسبك · Alt+A</small></div><button type="button" class="a11y-x" data-close aria-label="إغلاق">×</button></header>
+    <div class="a11y-body">
+      <div class="a11y-sec"><h3>ملفات جاهزة</h3><div class="a11y-prof">${A11Y_PROFILES.map(([k, l, i]) => `<button type="button" data-p="${k}" aria-pressed="false">${ai(i)}<span>${l}</span><i class="sw" aria-hidden="true"></i></button>`).join('')}</div></div>
+      ${A11Y_GROUPS.map(([t, it], gi) => `<details class="a11y-sec" open><summary><h3>${t}</h3>${ai('chev')}</summary><div class="a11y-grid">${it.map(tile).join('')}</div></details>`).join('')}
+      ${conf.statement ? `<details class="a11y-sec a11y-stmt"><summary><h3>${ai('info')} بيان إمكانية الوصول</h3>${ai('chev')}</summary><p>${esc(conf.statement)}</p></details>` : ''}
+    </div>
+    <footer class="a11y-foot"><button type="button" class="a11y-reset">${ai('reset')} إعادة ضبط الإعدادات</button></footer>
+  </section>
+</div>`);
+    const box = document.getElementById('a11y'); const btn = document.getElementById('a11y-btn'); const panel = document.getElementById('a11y-panel');
+    const sync = () => {
+      box.querySelectorAll('.a11y-tile').forEach((b) => { const v = st[b.dataset.k] || 0; b.setAttribute('aria-pressed', !!v); b.querySelectorAll('.lv i').forEach((i, n) => i.classList.toggle('on', n < v)); });
+      box.querySelectorAll('[data-p]').forEach((b) => { const p = A11Y_PROFILES.find((x) => x[0] === b.dataset.p); b.setAttribute('aria-pressed', st._p === p[0]); });
+      btn.classList.toggle('on', A11Y_ITEMS.some(([k]) => st[k]));
+    };
+    const save = () => { safeSet(A11Y_KEY, JSON.stringify(st)); a11yApply(st); sync(); };
+    const setOpen = (o) => {
+      panel.hidden = !o; btn.setAttribute('aria-expanded', o); box.classList.toggle('open', o);
+      if (o) setTimeout(() => panel.querySelector('.a11y-x').focus(), 30); else btn.focus();
+    };
+    btn.onclick = () => setOpen(panel.hidden);
+    box.querySelectorAll('[data-close]').forEach((x) => x.onclick = () => setOpen(false));
+    document.addEventListener('keydown', (e) => {
+      if (e.altKey && (e.key === 'a' || e.key === 'A' || e.key === 'ش')) { e.preventDefault(); setOpen(panel.hidden); }
+      if (e.key === 'Escape' && !panel.hidden) setOpen(false);
+      if (e.key === 'Tab' && !panel.hidden) { const f = [...panel.querySelectorAll('button, summary, a')].filter((x) => x.offsetParent); const a = f[0], z = f[f.length - 1]; if (e.shiftKey && document.activeElement === a) { e.preventDefault(); z.focus(); } else if (!e.shiftKey && document.activeElement === z) { e.preventDefault(); a.focus(); } }
+    });
+    box.querySelectorAll('.a11y-tile').forEach((b) => b.onclick = () => {
+      const k = b.dataset.k; const lv = +b.dataset.lv; const g = b.dataset.g;
+      const nv = ((st[k] || 0) + 1) % (lv + 1);
+      if (g && nv) A11Y_ITEMS.forEach(([x, , , , gg]) => { if (gg === g) delete st[x]; });
+      if (nv) st[k] = nv; else delete st[k];
+      delete st._p; save();
+    });
+    box.querySelectorAll('[data-p]').forEach((b) => b.onclick = () => {
+      const p = A11Y_PROFILES.find((x) => x[0] === b.dataset.p); const was = st._p === p[0];
+      Object.keys(st).forEach((k) => delete st[k]);
+      if (!was) { Object.assign(st, p[3]); st._p = p[0]; }
+      save();
+    });
+    box.querySelector('.a11y-reset').onclick = () => { Object.keys(st).forEach((k) => delete st[k]); save(); };
+    a11yApply(st); sync();
+  }
+
   function mountChrome(active) {
+    // عند فتح صفحة مولّدة مسبقًا نعيد بناء الواجهة حيّةً من البيانات
+    document.querySelectorAll('body > .site-header, body > header.nav-shell, body > .site-footer, body > footer, body > .fab, body > .a11y, body > .preview-bar, body > .skip').forEach((x) => x.remove());
     document.body.insertAdjacentHTML('afterbegin', header(active));
     document.body.insertAdjacentHTML('beforeend', footer());
     const btn = document.querySelector('.menu-btn'); const nav = document.getElementById('nav');
@@ -155,10 +277,12 @@
       document.body.insertAdjacentHTML('beforeend', `<div class="preview-bar" role="status">وضع المعاينة: تعرض مسودة لوحة التحكم <button type="button">إيقاف</button></div>`);
       document.querySelector('.preview-bar button').onclick = () => { safeDel(PREVIEW_KEY); location.reload(); };
     }
+    if (!prerender) a11yWidget();
   }
 
   function reveal() {
     const els = document.querySelectorAll('.reveal');
+    if (prerender) return;
     if (!('IntersectionObserver' in window)) { els.forEach((e) => e.classList.add('in')); return; }
     const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }), { rootMargin: '0px 0px -40px' });
     els.forEach((e) => io.observe(e));
@@ -167,6 +291,7 @@
   function countUp(root) {
     (root || document).querySelectorAll('[data-count]').forEach((el) => {
       const to = +el.dataset.count; const plus = el.dataset.plus ? '+' : '';
+      if (prerender || !window.matchMedia || !('IntersectionObserver' in window)) { el.textContent = num(to) + plus; return; }
       if (matchMedia('(prefers-reduced-motion: reduce)').matches) { el.textContent = num(to) + plus; return; }
       const io = new IntersectionObserver(([e]) => {
         if (!e.isIntersecting) return; io.disconnect();
@@ -182,7 +307,7 @@
   const live = (arr) => (arr || []).filter((x) => (x.status || 'published') === 'published');
 
   window.IB = {
-    BASE, DRAFT_KEY, PREVIEW_KEY, data, published, draft, previewOn, safeGet, safeSet, safeDel,
+    BASE, DRAFT_KEY, PREVIEW_KEY, built, prerender, data, published, draft, previewOn, safeGet, safeSet, safeDel,
     esc, src, url, qs, num, fmtDate, fmtMonth, icon, mountChrome, reveal, countUp, live,
   };
 })();

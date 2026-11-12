@@ -31,6 +31,7 @@
     send: '<path d="M22 2 11 13M22 2l-7 20-4-9-9-4z"/>',
     clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
     plus: '<path d="M12 5v14M5 12h14"/>',
+    phone: '<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/>',
     search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
     edit: '<path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
     copy: '<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/>',
@@ -103,7 +104,19 @@
     let inc = []; try { inc = JSON.parse(IB.safeGet('ib_submissions') || '[]'); } catch (e) { inc = []; }
     const ids = new Set(list.map((s) => s.id));
     inc.forEach((s) => { if (!ids.has(s.id)) list.unshift(s); });
-    return list;
+    return list.map(normSub);
+  }
+  function txt(v) { return Array.isArray(v) ? v.map((x) => (x && typeof x === 'object' ? Object.values(x).filter(Boolean).join(' — ') : x)).join('\n') : v == null ? '' : typeof v === 'object' ? Object.values(v).filter(Boolean).join(' ') : String(v); }
+  function normSub(s) {
+    const d = s.data; if (!d) return s;
+    if (s.problem == null) s.problem = txt(d.problem);
+    if (s.goals == null) s.goals = txt(d.goals || [d.goal, txt(d.objectives)].filter(Boolean).join('\n'));
+    if (s.activities == null) s.activities = txt(d.activities);
+    if (s.domains == null) s.domains = [].concat(d.domain || []).map((x) => (x === 'أخرى' && d.domainOther ? d.domainOther : x));
+    if (s.audiences == null) s.audiences = [].concat(d.audiences || d.ages || []);
+    if (s.location == null) s.location = d.location || [d.gov, d.area].filter(Boolean).join('، ');
+    if (s.members == null) s.members = d.team || [];
+    return s;
   }
   const saveSubs = () => { IB.safeSet(SUBS_KEY, JSON.stringify(SUBS)); renderNav(current); };
   const strip = (o) => { const c = clone(o); delete c.generatedAt; delete c.submissions; c.ideas = c.ideas || []; return c; };
@@ -618,9 +631,26 @@
     return siteView('stories', () => listCard('testimonials', D.site.testimonials, [['quote', 'الشهادة', { ta: 1 }], ['name', 'الاسم'], ['role', 'المكان / المبادرة']], { quote: '', name: '', role: '' }, 'ماذا يقول المبادرون', { cols: '2fr 1fr 1fr' }),
       () => [[D.site.testimonials.length, 'شهادة في الرئيسية']]);
   }
+  const HOME_SECS = {
+    now: ['الآن في البنك', 'أحدث ما نُشر من الميدان: مبادرات منفّذة، ودعوات مفتوحة للتقديم.'],
+    themes: ['لكل تحدٍّ مبادرة', 'مجالات يعمل فيها المبادرون، من الدعم النفسي إلى الصحة والتوعية والفنون.'],
+    impact: ['أثر المبادرات بالأرقام', 'أربعة مؤشرات بعدد بتلات شعارنا، تُحسب تلقائيًا من المبادرات الموثّقة.'],
+    stories: ['قصص تصنع الفرق', 'شباب وشابات حوّلوا التحدي إلى مساحة أمل في الخيام ومراكز الإيواء.'],
+    values: ['نعمل مع الجميع من أجل', ''],
+    join: ['شارك في صناعة التغيير', ''],
+  };
+  function homeSecs() {
+    const H = D.site.home = D.site.home || {};
+    H.order = (H.order || []).filter((k) => HOME_SECS[k]); Object.keys(HOME_SECS).forEach((k) => { if (!H.order.includes(k)) H.order.push(k); });
+    H.order.forEach((k) => { H[k] = Object.assign({ title: HOME_SECS[k][0], sub: HOME_SECS[k][1], show: true }, H[k] || {}); });
+    return `<section class="card"><div class="card-h"><h3>أقسام الصفحة الرئيسية</h3><span class="end muted">رتّبها وأظهرها أو أخفها</span></div><div class="card-b sec-list">${H.order.map((k, j) => `<div class="sec-it${H[k].show === false ? ' off' : ''}">
+      <span class="sn">${j + 1}</span><div class="form cols" style="flex:1">${fld(`home.${k}.title`, 'العنوان', H[k].title)}${k === 'join' ? '<span></span>' : fld(`home.${k}.sub`, 'الوصف', H[k].sub || '')}</div>
+      <span class="sec-a">${sw(`home.${k}.show`, H[k].show !== false, 'إظهار')}<button type="button" class="icon-btn sm" data-hmv="${j}" data-d="-1" aria-label="أعلى">${svg('up')}</button><button type="button" class="icon-btn sm" data-hmv="${j}" data-d="1" aria-label="أسفل">${svg('down')}</button></span></div>`).join('')}</div></section>`;
+  }
   function vHomepage() {
     const S_ = D.site;
     return siteView('homepage', () => `<div class="grid g-main"><div class="stack">
+      ${homeSecs()}
       <section class="card"><div class="card-h"><h3>الواجهة الرئيسية</h3></div><div class="card-b form">${fld('brand.tagline', 'الشعار', S_.brand.tagline)}${area('brand.intro', 'النص التعريفي', S_.brand.intro)}${imgPick('heroImages.0', 'الصورة الرئيسية', S_.heroImages[0])}</div></section>
       ${listCard('stats', S_.stats, [['value', 'الرقم', { t: 'num', type: 'number' }], ['label', 'الوصف'], ['icon', 'الأيقونة', { h: 'spark · bulb · people · hands' }]], { value: 0, label: '', icon: 'spark' }, 'أرقام الإنجازات')}
       ${listCard('values', S_.values, [['title', 'القيمة'], ['text', 'الوصف', { ta: 1 }], ['icon', 'الأيقونة']], { title: '', text: '', icon: 'spark' }, 'نعمل مع الجميع من أجل (القيم)', { cols: '1fr 2fr 1fr' })}
@@ -630,7 +660,7 @@
         <div style="display:flex;gap:8px;align-items:center;padding:8px;border-bottom:1px solid rgba(255,255,255,.08)"><img src="../${esc(S_.brand.logoLight)}" alt="" style="block-size:16px"><span style="opacity:.6">المكتبة · الأفكار · الإعلانات</span></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:12px;align-items:center"><b style="font-size:14px;line-height:1.3">${esc(S_.brand.tagline)}</b><img src="${esc(src(S_.heroImages[0]))}" alt="" style="border-radius:8px;block-size:70px;inline-size:100%;object-fit:cover"></div>
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;padding:8px;background:#fff;color:#16222E">${S_.stats.map((s) => `<span style="text-align:center"><b style="display:block;font-size:13px">${fmt(s.value)}+</b>${esc(s.label)}</span>`).join('')}</div></div></section>
-    </aside></div>`, null, (rer) => { $('#page').onclick = (e) => { const b = e.target.closest('[data-unfeat]'); if (!b) return; D.initiatives.find((i) => String(i.id) === b.dataset.unfeat).featured = false; save('أُلغي التمييز'); rer(); }; });
+    </aside></div>`, null, (rer) => { $('#page').onclick = (e) => { const hm = e.target.closest('[data-hmv]'); if (hm) { const o = D.site.home.order; const i = +hm.dataset.hmv; const j = i + +hm.dataset.d; if (j >= 0 && j < o.length) { [o[i], o[j]] = [o[j], o[i]]; save('تغيّر ترتيب الأقسام'); rer(); } return; } const b = e.target.closest('[data-unfeat]'); if (!b) return; D.initiatives.find((i) => String(i.id) === b.dataset.unfeat).featured = false; save('أُلغي التمييز'); rer(); }; });
   }
   function vGeneral() {
     const S_ = D.site; const tab = genTab;
@@ -645,18 +675,123 @@
         <div class="card-b grid g2">${listCard('contact.offices', S_.contact.offices, [['city', 'المدينة'], ['address', 'العنوان']], { city: '', address: '' }, 'المكاتب', { cols: '1fr 2fr' })}${listCard('contact.social', S_.contact.social, [['name', 'المنصة'], ['url', 'الرابط', { dir: 'ltr' }]], { name: '', url: '' }, 'حسابات التواصل', { cols: '1fr 2fr' })}</div>`,
       () => ['privacy', 'terms'].map((k) => `<div class="set-row" style="align-items:start"><div><h4>${esc(S_.legal[k].title)}</h4><p>آخر تحديث ${fmtDate(S_.legal[k].updated)}</p></div><div class="form">${fld(`legal.${k}.title`, 'العنوان', S_.legal[k].title)}${fld(`legal.${k}.updated`, 'آخر تحديث', S_.legal[k].updated, { type: 'date' })}${area(`legal.${k}.content`, 'المحتوى (HTML)', S_.legal[k].content, { code: true, rows: 10 })}</div></div>`).join(''),
     ];
-    return siteView('general', () => `<section class="card"><div class="tabs" style="--gc:var(--yellow)">${['الهوية', 'من نحن', 'التواصل', 'الصفحات القانونية'].map((l, k) => `<button data-panel="${k}" aria-selected="${k === tab}">${l}</button>`).join('')}</div>${panels[tab]()}</section>`, null,
+    S_.a11y = S_.a11y || { enabled: true, statement: '' }; S_.seo = S_.seo || { baseUrl: 'https://initiativesbank.ps/' };
+    panels.push(() => `<div class="set-row"><div><h4>أداة «الوصول للجميع»</h4><p>زر عائم يفتح لوحة إتاحة: حجم النص، التباين، الخط المقروء، إيقاف الحركة، دليل القراءة وملفات جاهزة.</p></div><label class="sw-l">${sw('a11y.enabled', S_.a11y.enabled !== false, 'تفعيل')}<span>إظهار الأداة في كل صفحات الموقع</span></label></div>
+      <div class="set-row" style="align-items:start"><div><h4>بيان إمكانية الوصول</h4><p>يظهر داخل لوحة الإتاحة. اتركه فارغًا لإخفائه.</p></div>${area('a11y.statement', '', S_.a11y.statement || '', { rows: 4 })}</div>
+      <div class="set-row"><div><h4>عنوان الموقع على الإنترنت</h4><p>يُستخدم في الروابط القانونية (canonical) وخريطة الموقع ووسوم المشاركة. غيّره عند نقل الموقع إلى نطاق جديد.</p></div>${fld('seo.baseUrl', 'الرابط الأساسي', S_.seo.baseUrl, { dir: 'ltr', ph: 'https://initiativesbank.ps/' })}</div>
+      <div class="set-row"><div><h4>كلمات مفتاحية</h4><p>تساعد محركات البحث على فهم موضوع الموقع.</p></div>${fld('seo.keywords', '', S_.seo.keywords || '')}</div>
+      <div class="set-row"><div><h4>صورة المشاركة الافتراضية</h4><p>تظهر عند مشاركة رابط الموقع على الشبكات الاجتماعية.</p></div>${imgPick('seo.ogImage', '', S_.seo.ogImage || '')}</div>`);
+    return siteView('general', () => `<section class="card"><div class="tabs" style="--gc:var(--yellow)">${['الهوية', 'من نحن', 'التواصل', 'الصفحات القانونية', 'الوصول والسيو'].map((l, k) => `<button data-panel="${k}" aria-selected="${k === tab}">${l}</button>`).join('')}</div>${panels[tab]()}</section>`, null,
       () => { $$('[data-panel]').forEach((b) => { b.onclick = () => { genTab = +b.dataset.panel; route(); }; }); });
   }
+  /* ---------- منشئ النماذج ---------- */
+  const FTYPES = {
+    text: 'نص قصير', textarea: 'نص طويل', number: 'رقم', email: 'بريد إلكتروني', tel: 'رقم جوال', date: 'تاريخ',
+    select: 'قائمة منسدلة', radio: 'اختيار واحد', checks: 'اختيار متعدد', money: 'مبلغ وعملة', file: 'مرفقات',
+    confirm: 'إقرار / موافقة', heading: 'عنوان أو نص توضيحي', repeater: 'بطاقات متكررة', budget: 'جدول موازنة',
+  };
+  const FT_ICON = { text: 'edit', textarea: 'news', number: 'tag', email: 'mail', tel: 'phone', date: 'clock', select: 'down', radio: 'check', checks: 'check', money: 'tag', file: 'upload', confirm: 'lock', heading: 'layout', repeater: 'layers', budget: 'layers' };
+  let formTab = 0; let openField = null;
   function vForms() {
+    const FM = D.site.forms; FM.list = FM.list || []; FM.gateway = FM.gateway || {};
     const F = D.site.submit;
-    return siteView('forms', () => `<section class="card">
-      <div class="set-row"><div><h4>رابط استقبال الطلبات</h4><p>بدونه يُحفظ الطلب في متصفح المتقدّم فقط ويُعرض عليه إرسال نسخة بالبريد. يقبل أي خدمة تستقبل JSON مثل Formspree أو Google Apps Script.</p></div>${fld('forms.endpoint', 'الرابط', D.site.forms.endpoint, { dir: 'ltr', ph: 'https://formspree.io/f/xxxx' })}</div>
+    const tabs = ['الإعدادات العامة'].concat(FM.list.map((f) => f.short || f.title || f.id));
+    if (formTab > FM.list.length) formTab = 0;
+    const optsField = (base, f) => {
+      const t = f.type; let h = '';
+      if (['select', 'radio', 'checks'].includes(t)) h += `<div class="form cols">${area(base + '.options', 'الخيارات <small>كل سطر خيار</small>', f.options || [], { t: 'lines', rows: 6 })}${area(base + '.labels', 'تسميات معروضة (اختياري) <small>بنفس الترتيب</small>', f.labels || [], { t: 'lines', rows: 6 })}</div>`;
+      if (t === 'confirm') h += area(base + '.text', 'نص الإقرار', f.text, { rows: 2 });
+      if (t === 'money') h += area(base + '.currencies', 'العملات <small>كل سطر عملة</small>', f.currencies || ['دولار', 'شيكل'], { t: 'lines', rows: 3 });
+      if (t === 'file') h += `<div class="form cols">${fld(base + '.maxFiles', 'أقصى عدد ملفات', f.maxFiles || 5, { t: 'num', type: 'number' })}${fld(base + '.maxMb', 'الحجم الأقصى (MB)', f.maxMb || 10, { t: 'num', type: 'number' })}</div>${fld(base + '.ext', 'الامتدادات المسموحة', f.ext || [], { t: 'tags', dir: 'ltr' })}`;
+      if (['text', 'textarea'].includes(t)) h += `<div class="form cols">${fld(base + '.max', 'أقصى عدد أحرف', f.max || '', { t: 'num', type: 'number' })}${fld(base + '.placeholder', 'نص إرشادي داخل الحقل', f.placeholder || '')}</div>`;
+      if (t === 'text') h += fld(base + '.quick', 'اقتراحات سريعة <small>مفصولة بفواصل</small>', f.quick || [], { t: 'tags' });
+      if (t === 'repeater' || t === 'budget') {
+        f.item = f.item || { fields: [] };
+        h += `<div class="form cols">${fld(base + '.item.title', 'اسم البطاقة', f.item.title || '')}${fld(base + '.item.firstTitle', 'اسم البطاقة الأولى (اختياري)', f.item.firstTitle || '')}${fld(base + '.item.addLabel', 'نص زر الإضافة', f.item.addLabel || '')}${fld(base + '.item.countFrom', 'العدد يُؤخذ من الحقل (مفتاح)', f.item.countFrom || '', { dir: 'ltr', h: 'اتركه فارغًا ليضيف المتقدّم البطاقات بنفسه' })}${fld(base + '.item.min', 'الحد الأدنى', f.item.min || 1, { t: 'num', type: 'number' })}${fld(base + '.item.max', 'الحد الأقصى', f.item.max || 10, { t: 'num', type: 'number' })}</div>`;
+        if (t === 'budget') h += `<div class="form cols">${fld(base + '.adminCategory', 'فئة المصاريف الإدارية', f.adminCategory || '')}${fld(base + '.contribKey', 'مفتاح حقل المساهمة الذاتية', f.contribKey || '', { dir: 'ltr' })}</div>`;
+        h += `<div class="f"><span>حقول البطاقة</span>${fieldList(base + '.item.fields', f.item.fields, true)}</div>`;
+      }
+      return h;
+    };
+    const condEd = (base, f, keys) => { const c = f.showIf || {}; return `<div class="cond"><span class="muted">يظهر فقط إذا كان</span>
+      <select class="in" data-cond="${base}" data-ck="key"><option value="">— يظهر دائمًا —</option>${keys.map((k) => `<option${k === c.key ? ' selected' : ''}>${esc(k)}</option>`).join('')}</select>
+      <select class="in" data-cond="${base}" data-ck="op">${[['eq', 'يساوي'], ['neq', 'لا يساوي'], ['includes', 'يتضمن'], ['filled', 'مُعبّأ']].map(([v, l]) => `<option value="${v}"${v === (c.op || 'eq') ? ' selected' : ''}>${l}</option>`).join('')}</select>
+      <input class="in" data-cond="${base}" data-ck="value" value="${esc(c.value || '')}" placeholder="القيمة"></div>`; };
+    const allKeys = (fl) => (fl || []).filter((x) => x.type !== 'heading').map((x) => x.key);
+    function fieldEditor(base, f, keys) {
+      return `<div class="fe-body">
+        <div class="form cols">${sel(base + '.type', 'نوع الحقل', f.type, Object.entries(FTYPES))}${fld(base + '.key', 'المفتاح البرمجي', f.key, { dir: 'ltr', h: 'حروف لاتينية بلا مسافات، فريد داخل النموذج' })}</div>
+        ${fld(base + '.label', 'عنوان الحقل', f.label)}
+        ${area(base + '.hint', 'نص المساعدة <small>يظهر تحت الحقل</small>', f.hint || '', { rows: f.type === 'heading' ? 5 : 2 })}
+        ${f.type === 'heading' ? '' : `<div class="fe-row"><label class="sw-l">${sw(base + '.required', f.required, 'مطلوب')}<span>حقل مطلوب</span></label>
+          <label class="f" style="flex:1"><span>العرض</span><select class="in" data-p="${base}.width"><option value=""${f.width ? '' : ' selected'}>عرض كامل</option><option value="half"${f.width === 'half' ? ' selected' : ''}>نصف عرض</option></select></label>
+          ${sel(base + '.role', 'دور خاص', f.role || '', [['', '—'], ['title', 'اسم المبادرة'], ['contactName', 'اسم شخص التواصل'], ['contactPhone', 'جوال شخص التواصل'], ['contactEmail', 'بريد شخص التواصل'], ['contactDob', 'ميلاد شخص التواصل']])}</div>`}
+        ${optsField(base, f)}
+        ${condEd(base, f, keys.filter((k) => k !== f.key))}
+      </div>`;
+    }
+    function fieldList(path, fields, nested) {
+      const keysHere = allKeys(fields);
+      return `<ol class="fl${nested ? ' nested' : ''}">${(fields || []).map((f, j) => { const base = `${path}.${j}`; const open = openField === base;
+        return `<li class="fi${open ? ' open' : ''}${f.type === 'heading' ? ' is-head' : ''}">
+          <div class="fi-h"><span class="ft">${svg(FT_ICON[f.type] || 'edit')}</span><button type="button" class="fi-t" data-fopen="${base}"><b>${esc(f.label || '(بلا عنوان)')}</b><small><span class="tag">${FTYPES[f.type] || f.type}</span> <code dir="ltr">${esc(f.key || '')}</code>${f.required ? ' <span class="pill st-review">مطلوب</span>' : ''}${f.showIf && f.showIf.key ? ` <span class="pill st-sched">شرطي: ${esc(f.showIf.key)}</span>` : ''}${f.item ? ` <span class="pill st-pub">${(f.item.fields || []).length} حقول</span>` : ''}</small></button>
+            <span class="fi-a"><button type="button" class="icon-btn sm" data-fmv="${base}" data-d="-1" aria-label="أعلى">${svg('up')}</button><button type="button" class="icon-btn sm" data-fmv="${base}" data-d="1" aria-label="أسفل">${svg('down')}</button><button type="button" class="icon-btn sm" data-fdup="${base}" aria-label="تكرار">${svg('copy')}</button><button type="button" class="icon-btn sm danger" data-frm="${base}" aria-label="حذف">${svg('trash')}</button></span></div>
+          ${open ? fieldEditor(base, f, nested ? keysHere : keysHere) : ''}</li>`; }).join('')}</ol>
+        <div class="fadd"><span class="muted">إضافة حقل:</span>${Object.entries(FTYPES).filter(([k]) => !nested || !['repeater', 'budget', 'heading', 'file'].includes(k)).map(([k, l]) => `<button type="button" class="chip-btn" data-fadd="${path}" data-ft="${k}">${svg(FT_ICON[k] || 'plus')}${l}</button>`).join('')}</div>`;
+    }
+    const general = () => `<div class="set-row"><div><h4>رابط استقبال الطلبات</h4><p>بدونه يُحفظ الطلب في متصفح المتقدّم ويُعرض عليه إرسال نسخة بالبريد. يقبل أي خدمة تستقبل JSON مثل Formspree أو Google Apps Script.</p></div>${fld('forms.endpoint', 'الرابط', FM.endpoint, { dir: 'ltr', ph: 'https://formspree.io/f/…' })}</div>
       <div class="set-row"><div><h4>عنوان الصفحة ومقدمتها</h4></div><div class="form">${fld('submit.title', 'العنوان', F.title)}${area('submit.intro', 'المقدمة', F.intro, { rows: 2 })}</div></div>
-      <div class="set-row" style="align-items:start"><div><h4>المجالات والفئات</h4><p>خيارات تظهر للمتقدّم. كل سطر خيار.</p></div><div class="form cols">${area('submit.domains', 'المجالات', F.domains, { t: 'lines', rows: 9 })}${area('submit.audiences', 'الفئات', F.audiences, { t: 'lines', rows: 9 })}</div></div>
-      <div class="set-row" style="align-items:start"><div><h4>الموافقة المستنيرة</h4><p>يجب أن يوافق المتقدّم عليها قبل الإرسال.</p></div>${area('submit.consent', 'البنود', F.consent, { t: 'lines', rows: 6 })}</div></section>
-      <div class="grid g2" style="margin-top:18px">${listCard('submit.steps', F.steps, [['title', 'الخطوة'], ['text', 'الوصف']], { title: '', text: '' }, 'خطوات التقديم')}${listCard('submit.faq', F.faq, [['q', 'السؤال'], ['a', 'الجواب', { ta: 1 }]], { q: '', a: '' }, 'الأسئلة الشائعة')}</div>`,
-      () => [[F.domains.length, 'مجالًا'], [F.audiences.length, 'فئة'], [D.site.forms.endpoint ? 'متصل' : 'غير متصل', 'استقبال الطلبات']]);
+      <div class="set-row" style="align-items:start"><div><h4>بوابة اختيار النموذج</h4><p>السؤال الأول الذي يحدد أي نموذج يفتح للمتقدّم.</p></div><div class="form">${fld('forms.gateway.title', 'العنوان الصغير', FM.gateway.title || '')}${fld('forms.gateway.question', 'السؤال', FM.gateway.question || '')}
+        <div class="form cols">${['yes', 'no'].map((k) => { FM.gateway[k] = FM.gateway[k] || {}; return `<div class="gw-card"><b>${k === 'yes' ? 'الخيار الأول' : 'الخيار الثاني'}</b>${fld(`forms.gateway.${k}.label`, 'النص', FM.gateway[k].label || '')}${fld(`forms.gateway.${k}.cta`, 'نص الزر', FM.gateway[k].cta || '')}${sel(`forms.gateway.${k}.form`, 'يفتح النموذج', FM.gateway[k].form || '', FM.list.map((f) => [f.id, f.title]))}</div>`; }).join('')}</div></div></div>
+      <div class="card-b grid g2">${listCard('submit.steps', F.steps, [['title', 'الخطوة'], ['text', 'الوصف']], { title: '', text: '' }, 'كيف يتم التقديم؟')}${listCard('submit.faq', F.faq, [['q', 'السؤال'], ['a', 'الجواب', { ta: 1 }]], { q: '', a: '' }, 'الأسئلة الشائعة')}</div>
+      <div class="card-b"><button type="button" class="btn primary" id="newForm">${svg('plus')}نموذج جديد</button></div>`;
+    const formPanel = (fi) => { const f = FM.list[fi]; const P = `forms.list.${fi}`; const nF = f.steps.reduce((n, s) => n + (s.fields || []).length, 0);
+      return `<div class="set-row" style="align-items:start"><div><h4>بيانات النموذج</h4><p>${f.steps.length} خطوات · ${nF} حقلًا</p>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px"><button type="button" class="btn sm" id="pvForm">${svg('eye')}معاينة</button><button type="button" class="btn sm" id="dupForm">${svg('copy')}تكرار</button><button type="button" class="btn sm danger" id="rmForm">${svg('trash')}حذف</button></div></div>
+        <div class="form"><div class="fe-row"><label class="sw-l">${sw(P + '.open', f.open !== false, 'مفتوح')}<span>${f.open !== false ? 'مفتوح لاستقبال الطلبات' : 'مغلق — لا يظهر للزوار'}</span></label></div>
+          <div class="form cols">${fld(P + '.title', 'العنوان', f.title)}${fld(P + '.short', 'اسم مختصر', f.short || '')}${fld(P + '.refPrefix', 'بادئة رقم الطلب', f.refPrefix || 'IB', { dir: 'ltr' })}${sel(P + '.icon', 'الأيقونة', f.icon || 'people', [['people', 'أشخاص'], ['hands', 'أيدٍ'], ['bulb', 'فكرة'], ['spark', 'شرارة'], ['rocket', 'صاروخ'], ['globe', 'عالم']])}</div>
+          ${area(P + '.desc', 'وصف يظهر في بوابة الاختيار', f.desc || f.subtitle || '', { rows: 2 })}</div></div>
+        <div class="steps-ed">${f.steps.map((s, k) => `<section class="step-ed card"><div class="card-h"><span class="sn">${k + 1}</span><h3>${esc(s.title || 'خطوة')}</h3><span class="end">${s.review ? '<span class="pill st-pub">خطوة المراجعة</span>' : ''}<button type="button" class="icon-btn sm" data-smv="${k}" data-d="-1" aria-label="أعلى">${svg('up')}</button><button type="button" class="icon-btn sm" data-smv="${k}" data-d="1" aria-label="أسفل">${svg('down')}</button><button type="button" class="icon-btn sm danger" data-srm="${k}" aria-label="حذف الخطوة">${svg('trash')}</button></span></div>
+          <div class="card-b"><div class="form cols">${fld(`${P}.steps.${k}.title`, 'عنوان الخطوة', s.title)}${fld(`${P}.steps.${k}.intro`, 'مقدمة الخطوة', s.intro || '')}</div>
+          <div class="fe-row" style="margin:10px 0"><label class="sw-l">${sw(`${P}.steps.${k}.review`, s.review, 'مراجعة')}<span>تعرض ملخص الإجابات قبل الإرسال</span></label></div>
+          ${fieldList(`${P}.steps.${k}.fields`, s.fields || [])}</div></section>`).join('')}
+          <button type="button" class="btn" id="addStep">${svg('plus')}إضافة خطوة</button></div>`; };
+    return siteView('forms', () => `<section class="card"><div class="tabs" style="--gc:var(--yellow)">${tabs.map((l, k) => `<button data-ftab="${k}" aria-selected="${k === formTab}">${esc(l)}${k && FM.list[k - 1].open === false ? ' <span>مغلق</span>' : ''}</button>`).join('')}</div>${formTab ? formPanel(formTab - 1) : general()}</section>`,
+      () => [[FM.list.length, 'نماذج'], [FM.list.filter((f) => f.open !== false).length, 'مفتوحة'], [FM.endpoint ? 'متصل' : 'غير متصل', 'استقبال الطلبات']],
+      (rer) => {
+        const page = $('#page');
+        const at = (p) => p.split('.').reduce((o, k) => o[k], D.site);
+        const parent = (p) => { const ks = p.split('.'); const i = +ks.pop(); return [ks.reduce((o, k) => o[k], D.site), i]; };
+        page.onclick = (e) => {
+          const b = e.target.closest('button'); if (!b) return; const d = b.dataset;
+          if (d.ftab) { formTab = +d.ftab; openField = null; return rer(); }
+          if (d.fopen) { openField = openField === d.fopen ? null : d.fopen; return rer(); }
+          if (d.fadd) { const arr = at(d.fadd); const nf = { key: d.ft + (arr.length + 1), type: d.ft, label: FTYPES[d.ft] };
+            if (['select', 'radio', 'checks'].includes(d.ft)) nf.options = ['الخيار الأول', 'الخيار الثاني'];
+            if (d.ft === 'confirm') nf.text = 'أقرّ بصحة البيانات.';
+            if (d.ft === 'repeater') nf.item = { title: 'عنصر', addLabel: 'أضف عنصرًا', min: 1, max: 10, fields: [{ key: 'name', type: 'text', label: 'الاسم', required: true }] };
+            if (d.ft === 'budget') Object.assign(nf, { categories: [], adminCategory: 'مصاريف إدارية', item: { title: 'البند', addLabel: 'أضف بندًا', min: 1, max: 30, fields: [{ key: 'desc', type: 'text', label: 'وصف البند', required: true, width: 'half' }, { key: 'qty', type: 'number', label: 'الكمية', required: true, width: 'half' }, { key: 'cost', type: 'number', label: 'تكلفة الوحدة', required: true, width: 'half' }] } });
+            arr.push(nf); openField = `${d.fadd}.${arr.length - 1}`; save('أُضيف الحقل'); return rer(); }
+          if (d.fmv) { const [arr, i] = parent(d.fmv); const j = i + +d.d; if (j < 0 || j >= arr.length) return; [arr[i], arr[j]] = [arr[j], arr[i]]; openField = null; save(); return rer(); }
+          if (d.fdup) { const [arr, i] = parent(d.fdup); const c = clone(arr[i]); c.key = c.key + '_2'; arr.splice(i + 1, 0, c); save('كُرّر الحقل'); return rer(); }
+          if (d.frm) { const [arr, i] = parent(d.frm); const x = arr.splice(i, 1)[0]; openField = null; save(); rer(); return toast('حُذف الحقل', () => { arr.splice(i, 0, x); save(); rer(); }); }
+          const f = FM.list[formTab - 1];
+          if (d.smv) { const i = +d.smv; const j = i + +d.d; if (j < 0 || j >= f.steps.length) return; [f.steps[i], f.steps[j]] = [f.steps[j], f.steps[i]]; save(); return rer(); }
+          if (d.srm) { const i = +d.srm; const x = f.steps.splice(i, 1)[0]; save(); rer(); return toast('حُذفت الخطوة', () => { f.steps.splice(i, 0, x); save(); rer(); }); }
+          if (b.id === 'addStep') { const rv = f.steps.findIndex((s) => s.review); f.steps.splice(rv >= 0 ? rv : f.steps.length, 0, { id: 's' + uid().toString(36), title: 'خطوة جديدة', intro: '', fields: [] }); save('أُضيفت خطوة'); return rer(); }
+          if (b.id === 'newForm') { const id = 'f' + uid().toString(36); FM.list.push({ id, title: 'نموذج جديد', short: 'نموذج جديد', desc: '', icon: 'bulb', open: false, refPrefix: 'IB', steps: [
+            { id: 'basic', title: 'المعلومات الأساسية', intro: '', fields: [{ key: 'consent', type: 'confirm', label: 'الموافقة', required: true, text: 'أوافق على جمع البيانات لدراسة الطلب والتواصل معي.' }, { key: 'name', type: 'text', label: 'اسم المبادرة', required: true, role: 'title' }] },
+            { id: 'review', title: 'المراجعة والإرسال', review: true, fields: [] }] }); formTab = FM.list.length; save('أُنشئ نموذج جديد (مغلق حتى تفعّله)'); return rer(); }
+          if (b.id === 'dupForm') { const c = clone(f); c.id = 'f' + uid().toString(36); c.title += ' (نسخة)'; c.short = (c.short || '') + ' (نسخة)'; c.open = false; FM.list.push(c); formTab = FM.list.length; save('كُرّر النموذج'); return rer(); }
+          if (b.id === 'rmForm') { const i = formTab - 1; const x = FM.list.splice(i, 1)[0]; formTab = 0; save(); rer(); return toast('حُذف النموذج', () => { FM.list.splice(i, 0, x); save(); rer(); }); }
+          if (b.id === 'pvForm') return preview('submit.html?form=' + encodeURIComponent(f.id));
+        };
+        page.addEventListener('change', (e) => {
+          const c = e.target.closest('[data-cond]'); if (c) { const fo = at(c.dataset.cond); const v = c.value; if (c.dataset.ck === 'key' && !v) delete fo.showIf; else { fo.showIf = fo.showIf || { op: 'eq', value: '' }; fo.showIf[c.dataset.ck] = v; } save(); return; }
+          const t = e.target.closest('[data-p$=".type"], [data-p$=".key"], [data-p$=".label"]'); if (t) setTimeout(rer, 0);
+        });
+        page.addEventListener('input', (e) => { const c = e.target.closest('[data-cond][data-ck="value"]'); if (c) { const fo = at(c.dataset.cond); fo.showIf = fo.showIf || { op: 'eq' }; fo.showIf.value = c.value; save(); } });
+      });
   }
 
   /* ====================== الوسائط ====================== */
@@ -700,12 +835,32 @@
   }
 
   /* ====================== الطلبات ====================== */
+  function subBody(s) {
+    const schema = ((D.site.forms || {}).list || []).find((f) => f.id === s.form);
+    if (!s.data || !schema) {
+      return `<dl class="dl"><dt>النموذج</dt><dd>${s.form === 'pwd' ? 'مبادرات ذوي الإعاقة' : 'عام'}</dd><dt>المجالات</dt><dd>${esc((s.domains || []).join('، '))}</dd><dt>الفئات</dt><dd>${esc((s.audiences || []).join('، '))}</dd><dt>المكان</dt><dd>${esc(s.location || '')}</dd><dt>المدة</dt><dd>${esc(s.duration || '')}</dd><dt>الميزانية</dt><dd>${esc(s.budget || '')}</dd></dl>`
+        + [['المشكلة', s.problem], ['الأهداف', s.goals], ['الأنشطة', s.activities], ['المواءمة', s.access]].filter((x) => x[1]).map(([l, v]) => `<div class="f" style="margin-top:12px"><span>${l}</span><p class="sub-p">${esc(v)}</p></div>`).join('')
+        + `<div class="f" style="margin-top:12px"><span>الفريق</span><ul class="feed" style="font-size:13px">${(s.members || []).map((m, k) => `<li><span class="avatar" style="inline-size:24px;block-size:24px;font-size:10px">${k + 1}</span><div><b>${esc(m.name)}</b><time dir="ltr" style="text-align:end">${esc(m.phone)} · ${esc(m.email)}</time></div></li>`).join('')}</ul></div>`;
+    }
+    const d = s.data;
+    const val = (f, v) => { if (v == null || v === '' || (Array.isArray(v) && !v.length)) return ''; if (f.type === 'confirm') return v ? 'نعم' : ''; if (f.type === 'money') return `${v.amount || ''} ${v.cur || ''}`.trim(); if (f.type === 'select' && f.labels) { const i = (f.options || []).indexOf(v); return i >= 0 ? f.labels[i] : v; } return Array.isArray(v) ? v.join('، ') : String(v); };
+    return `<dl class="dl"><dt>النموذج</dt><dd>${esc(schema.title)}</dd></dl>` + schema.steps.filter((st) => !st.review).map((st) => {
+      const rows = (st.fields || []).filter((f) => f.type !== 'heading' && f.type !== 'confirm').map((f) => {
+        if (f.item) { const arr = d[f.key] || []; if (!arr.length) return ''; return `<div class="f"><span>${esc(f.label)}</span><ol class="sub-items">${arr.map((it, i) => `<li><b>${esc((i === 0 && f.item.firstTitle) || `${f.item.title || ''} ${i + 1}`)}</b>${(f.item.fields || []).map((sf) => { const v = val(sf, it[sf.key]); return v ? `<div><small>${esc(sf.label)}</small> ${esc(v)}</div>` : ''; }).join('')}${f.type === 'budget' ? `<div><small>الإجمالي</small> ${fmt((+it.qty || 0) * (+it.cost || 0))}</div>` : ''}</li>`).join('')}</ol></div>`; }
+        const v = val(f, d[f.key]); if (!v) return '';
+        return v.length > 80 || f.type === 'textarea' ? `<div class="f"><span>${esc(f.label)}</span><p class="sub-p">${esc(v)}</p></div>` : `<dl class="dl"><dt>${esc(f.label)}</dt><dd>${esc(v)}</dd></dl>`;
+      }).join('');
+      return rows ? `<details class="sub-sec" open><summary>${esc(st.title)}</summary>${rows}</details>` : '';
+    }).join('');
+  }
   function vSubmissions(openId) {
     let cur = openId || (SUBS[0] && SUBS[0].id);
     const imp = () => { const i = document.createElement('input'); i.type = 'file'; i.accept = '.json,application/json'; i.onchange = async () => { try { const arr = [].concat(JSON.parse(await i.files[0].text())); const ids = new Set(SUBS.map((s) => s.id)); let n = 0; arr.forEach((s) => { if (s && s.title && !ids.has(s.id)) { s.id = s.id || 'S' + uid().toString(36); s.status = SUB[s.status] ? s.status : 'new'; s.members = s.members || []; SUBS.unshift(s); n++; } }); saveSubs(); toast(`استُورد ${n} طلب`); route(); } catch (err) { toast('ملف غير صالح', null, true); } }; i.click(); };
     const csv = () => {
-      const cols = ['id', 'receivedAt', 'status', 'form', 'title', 'domains', 'location', 'duration', 'audiences', 'budget', 'problem', 'goals', 'activities', 'access', 'contact_name', 'contact_phone', 'contact_email', 'team', 'notes'];
-      const rows = SUBS.map((s) => cols.map((c) => { const m0 = (s.members || [])[0] || {}; let v = c === 'contact_name' ? m0.name : c === 'contact_phone' ? m0.phone : c === 'contact_email' ? m0.email : c === 'team' ? (s.members || []).map((m) => m.name).join(' | ') : c === 'status' ? (SUB[s.status] || [s.status])[0] : s[c]; v = Array.isArray(v) ? v.join('، ') : v == null ? '' : String(v); return '"' + v.replace(/"/g, '""') + '"'; }).join(','));
+      const flat = (o, pre, out) => { Object.entries(o || {}).forEach(([k, v]) => { const key = pre ? pre + '.' + k : k; if (v && typeof v === 'object' && !Array.isArray(v)) flat(v, key, out); else if (Array.isArray(v) && v.some((x) => x && typeof x === 'object')) v.forEach((x, i) => flat(x, key + '.' + (i + 1), out)); else out[key] = Array.isArray(v) ? v.join('، ') : v; }); return out; };
+      const recs = SUBS.map((x) => Object.assign({ id: x.id, receivedAt: x.receivedAt, status: (SUB[x.status] || [x.status])[0], form: x.formTitle || x.form, title: x.title, contact_name: (x.contact || (x.members || [])[0] || {}).name, contact_phone: (x.contact || (x.members || [])[0] || {}).phone, contact_email: (x.contact || (x.members || [])[0] || {}).email, notes: x.notes }, flat(x.data || { problem: x.problem, goals: x.goals, activities: x.activities, budget: x.budget, location: x.location }, '', {})));
+      const cols = [...new Set(recs.flatMap((r) => Object.keys(r)))];
+      const rows = recs.map((r) => cols.map((c) => { const v = r[c] == null ? '' : String(r[c]); return '"' + v.replace(/"/g, '""') + '"'; }).join(','));
       download('initiatives-bank-submissions.csv', '﻿' + [cols.join(','), ...rows].join('\n'), 'text/csv');
     };
     const html = () => hero('submissions', `<button class="btn" id="imp">${svg('upload')}استيراد JSON</button><button class="btn" id="csv" ${SUBS.length ? '' : 'disabled'}>${svg('download')}تصدير CSV</button>`,
@@ -718,12 +873,10 @@
       const page = $('#page'); const rer = () => { page.innerHTML = `<div class="view">${html()}</div>`; detail(); };
       const detail = () => {
         const s = SUBS.find((x) => x.id === cur); const box = $('#detail'); if (!box) return; if (!s) { box.innerHTML = '<div class="empty">اختر طلبًا</div>'; return; }
-        const c = (s.members && s.members[0]) || {};
+        const c = s.contact || (s.members && s.members[0]) || {};
         box.innerHTML = `<div style="display:flex;gap:12px;align-items:center;margin-bottom:14px"><span class="avatar" style="inline-size:46px;block-size:46px;background:${SUB[s.status][1]}">${esc((c.name || '؟').trim()[0])}</span><div style="min-inline-size:0"><h4 style="margin:0">${esc(s.title)}</h4><small class="muted">${esc(c.name || '')} · رقم الطلب <span dir="ltr">${esc(s.id)}</span></small></div></div>
           <div class="seg" style="margin-bottom:14px">${Object.entries(SUB).map(([k, [l]]) => `<button data-move="${k}" aria-pressed="${s.status === k}">${l}</button>`).join('')}</div>
-          <dl class="dl"><dt>النموذج</dt><dd>${s.form === 'pwd' ? 'مبادرات ذوي الإعاقة' : 'عام'}</dd><dt>المجالات</dt><dd>${esc((s.domains || []).join('، '))}</dd><dt>الفئات</dt><dd>${esc((s.audiences || []).join('، '))}</dd><dt>المكان</dt><dd>${esc(s.location)}</dd><dt>المدة</dt><dd>${esc(s.duration)}</dd><dt>الميزانية</dt><dd>${esc(s.budget)}</dd></dl>
-          ${[['المشكلة', s.problem], ['الأهداف', s.goals], ['الأنشطة', s.activities], ['المواءمة', s.access]].filter((x) => x[1]).map(([l, v]) => `<div class="f" style="margin-top:12px"><span>${l}</span><p style="margin:0;font-size:13.5px;color:var(--ink-2);line-height:1.8;white-space:pre-wrap">${esc(v)}</p></div>`).join('')}
-          <div class="f" style="margin-top:12px"><span>الفريق</span><ul class="feed" style="font-size:13px">${(s.members || []).map((m, k) => `<li><span class="avatar" style="inline-size:24px;block-size:24px;font-size:10px">${k + 1}</span><div><b>${esc(m.name)}</b><time dir="ltr" style="text-align:end">${esc(m.phone)} · ${esc(m.email)}</time></div></li>`).join('')}</ul></div>
+          ${subBody(s)}
           <label class="f" style="margin-top:10px"><span>ملاحظات الفريق <small>لا تصل للمتقدّم</small></span><textarea class="in" id="notes" rows="2">${esc(s.notes || '')}</textarea></label>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px"><button class="btn primary" id="toInit">${svg('spark')}إلى مبادرة</button><button class="btn" id="toIdea">${svg('bulb')}إلى بنك الأفكار</button>
             <a class="btn" href="mailto:${esc(c.email || '')}?subject=${encodeURIComponent('بنك المبادرات: ' + s.title)}">${svg('mail')}مراسلة</a><button class="btn danger" id="rmS">${svg('trash')}حذف</button></div>
