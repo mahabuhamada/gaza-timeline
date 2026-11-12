@@ -935,3 +935,95 @@ p, .lead, .desc { text-wrap: pretty; }
 .sec-head > .scroller-nav::after, .sec-head > .link-btn::after { display: none !important; }
 @media (max-width: 960px) { .filters:not(.open) { visibility: hidden; } .filters { transition: transform .25s, visibility .25s; } }
 @media (max-width: 960px) { .filters:not(.open) { display: none; } .filters.open { animation: slideIn .3s var(--ease); } @keyframes slideIn { from { transform: translateX(-100%); } } }
+
+/* ==========================================================
+   لمسات جمالية على الأقسام السابقة + حركات سلسة
+   ========================================================== */
+/* الخط الزمني: الخط يُرسم والعناصر تظهر بالتتابع */
+.timeline::before { transform: scaleX(0); transform-origin: right; transition: transform 1.2s var(--ease); }
+.timeline.in::before { transform: scaleX(1); }
+.timeline.reveal { opacity: 1; transform: none; }
+.tl-item { opacity: 0; transform: translateY(16px); transition: opacity .6s var(--ease), transform .6s var(--ease); transition-delay: calc(var(--i) * .12s + .2s); }
+.timeline.in .tl-item { opacity: 1; transform: none; }
+.tl-item::before { transition: transform .4s; }
+.tl-item:hover::before { transform: scale(1.25); background: var(--orange); }
+.tl-item .card { height: 100%; }
+.tl-item .card h3 { font-size: 16px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; min-height: 4.5em; }
+.tl-item .badges .pill { box-shadow: 0 6px 14px -8px rgba(16,23,64,.5); }
+.timeline { align-items: stretch; }
+@media (max-width: 760px) {
+  .timeline { grid-template-columns: 1fr; padding: 0; padding-inline-start: 30px; gap: 26px; }
+  .timeline::before { top: 6px; bottom: 6px; inset-inline-start: 7px; inset-inline-end: auto; width: 2px; height: auto; transform: scaleY(0); transform-origin: top; background: linear-gradient(180deg, var(--blue), var(--orange)); }
+  .timeline.in::before { transform: scaleY(1); }
+  .tl-item::before { top: 4px; inset-inline-start: -30px; }
+  .tl-item .when { position: static; display: block; margin-bottom: 8px; padding-inline-start: 4px; }
+  .tl-item .card { flex-direction: row; }
+  .tl-item .card .media { width: 120px; flex-shrink: 0; aspect-ratio: auto; margin: 8px; }
+  .tl-item .card .badges { display: none; }
+  .tl-item .card h3 { min-height: 0; font-size: 15px; }
+  .tl-item .card .body { padding: 12px 10px 12px 14px; }
+}
+
+/* اللوحات المتمددة */
+.panels.reveal { opacity: 1; transform: none; }
+.panel { transition: flex .7s var(--ease), box-shadow .4s; }
+.panel img { transition: transform 1.2s var(--ease); }
+.panel.on img { transform: scale(1.04); }
+.panels:hover .panel.on:not(:hover) { flex: 1; }
+.panel .txt { transition: transform .5s var(--ease); }
+.panel:not(.on) .txt h3 { font-size: 17px; }
+@media (max-width: 860px) {
+  .panels { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; height: auto; }
+  .panel, .panel.on, .panels:hover .panel:hover { height: 230px; flex: none; }
+  .panel p { display: none; }
+  .panel .go { opacity: 1; }
+  .panel h3 { font-size: 17px !important; }
+}
+@media (max-width: 420px) { .panels { grid-template-columns: 1fr; } .panel, .panel.on { height: 200px; } }
+
+/* شريط الأثر */
+.impact { border-radius: 30px; }
+.matrix i { transition: background .35s ease, transform .35s ease; transition-delay: calc(var(--n) * 6ms); }
+.matrix i.on { background: var(--c, var(--yellow)); transform: scale(1.05); }
+.impact-big.swap > div:first-child { animation: up .45s var(--ease); }
+.impact-big .num { transition: color .4s; }
+.impact-list button { position: relative; flex-wrap: wrap; row-gap: 8px; transition: background .3s, border-color .3s, transform .3s var(--ease); }
+.impact-list button:hover { transform: translateX(-3px); }
+.impact-list button[aria-pressed="true"] { box-shadow: inset -3px 0 0 var(--c); }
+.impact-list .meter { flex-basis: 100%; height: 4px; border-radius: 4px; background: rgba(255,255,255,.12); overflow: hidden; display: block; }
+.impact-list .meter i { display: block; height: 100%; border-radius: 4px; background: var(--c); transform: scaleX(0); transform-origin: right; transition: transform 1s var(--ease); }
+.impact.in .impact-list .meter i { transform: scaleX(1); }
+@media (max-width: 900px) {
+  .impact-big { grid-template-columns: 1fr; text-align: start; }
+  .matrix { grid-template-columns: repeat(10, 1fr); gap: 5px; max-width: 280px; }
+  .matrix i { width: auto; height: auto; aspect-ratio: 1; }
+  .impact-head { flex-direction: column; align-items: flex-start; }
+}
+
+/* القصص: تبديل ناعم */
+.feat > * { transition: opacity .25s ease; }
+.feat.fade > * { opacity: 0; }
+.feat img { transition: transform 1.2s var(--ease), opacity .25s; }
+.feat:hover img { transform: scale(1.04); }
+.side-list a { position: relative; transition: background .25s, transform .3s var(--ease); }
+.side-list a[aria-current] { background: var(--sky); }
+.side-list a[aria-current]::after { content: ""; position: absolute; inset-inline-start: 0; top: 18%; bottom: 18%; width: 3px; border-radius: 3px; background: var(--orange); }
+.side-list a:hover { transform: translateX(-3px); }
+@media (max-width: 900px) { .side-list { grid-template-columns: 1fr; } }
+
+/* الشركاء أسفل «شارك» */
+.partners-row { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 18px 44px; margin-top: 48px; padding-top: 32px; border-top: 1px solid var(--line); }
+.partners-row img { height: 56px; width: auto; object-fit: contain; filter: grayscale(1); opacity: .7; transition: filter .35s, opacity .35s, transform .35s var(--ease); }
+.partners-row a:hover img { filter: none; opacity: 1; transform: translateY(-3px); }
+@media (max-width: 560px) { .partners-row { gap: 16px 28px; } .partners-row img { height: 42px; } }
+
+/* حركة عامة أنعم للبطاقات والأزرار */
+.card, .join a, .track, .value, .story { transition: transform .45s var(--ease), box-shadow .45s var(--ease), border-color .3s; }
+.btn { transition: transform .3s var(--ease), box-shadow .3s var(--ease), background .3s, color .3s, border-color .3s; }
+.btn:active { transform: scale(.97); }
+.reveal { transition: opacity .8s var(--ease), transform .8s var(--ease); }
+@media (prefers-reduced-motion: reduce) { .tl-item, .timeline::before, .matrix i, .impact-list .meter i { transition: none !important; opacity: 1 !important; transform: none !important; } }
+.impact-list button { display: grid; grid-template-columns: 72px 1fr; align-items: center; column-gap: 12px; }
+.impact-list button b { min-width: 0; text-align: start; }
+.impact-list .meter { grid-column: 1 / -1; }
+@media (max-width: 900px) { .matrix { margin-inline: auto; } }
