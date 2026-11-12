@@ -1027,3 +1027,22 @@ p, .lead, .desc { text-wrap: pretty; }
 .impact-list button b { min-width: 0; text-align: start; }
 .impact-list .meter { grid-column: 1 / -1; }
 @media (max-width: 900px) { .matrix { margin-inline: auto; } }
+
+/* أثر بالأرقام: نقاط خماسية بحركة دوران وارتداد */
+.matrix { gap: 7px; }
+.matrix i {
+  width: 16px; height: 16px; border-radius: 0;
+  -webkit-mask: var(--pmask); mask: var(--pmask);
+  background: rgba(255,255,255,.14);
+  transform: scale(.8) rotate(-36deg);
+  transition: background .4s ease, transform .55s cubic-bezier(.34,1.56,.64,1);
+  transition-delay: calc(var(--n) * 7ms);
+}
+.matrix i.on { background: var(--c, var(--yellow)); transform: scale(1) rotate(0deg); }
+.impact.in .matrix i.on { animation: pglow 2.8s ease-in-out infinite; animation-delay: calc(var(--n) * 30ms + 1s); }
+@keyframes pglow { 50% { filter: brightness(1.25); transform: scale(1.12) rotate(0deg); } }
+.impact-head .logo { animation: spinIn 1.2s cubic-bezier(.34,1.56,.64,1) both; }
+@keyframes spinIn { from { transform: rotate(-72deg) scale(.6); opacity: 0; } }
+@media (max-width: 900px) { .matrix { gap: 5px; } .matrix i { width: auto; height: auto; aspect-ratio: 1; } }
+@media (prefers-reduced-motion: reduce) { .matrix i, .impact.in .matrix i.on, .impact-head .logo { animation: none !important; transition: none !important; transform: none !important; } }
+:root { --pmask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpolygon points='50,10 90,39 75,87 25,87 10,39' fill='black' stroke='black' stroke-width='16' stroke-linejoin='round'/%3E%3C/svg%3E") center / 100% 100% no-repeat; }
