@@ -1,0 +1,13 @@
+{
+  "name": "initiatives-bank",
+  "private": true,
+  "description": "موقع بنك المبادرات ولوحة التحكم — موقع ثابت يُولَّد مسبقًا لمحركات البحث",
+  "type": "module",
+  "scripts": {
+    "build": "node tools/build.mjs",
+    "serve": "npx --yes serve dist"
+  },
+  "devDependencies": {
+    "jsdom": "26.1.0"
+  }
+}
