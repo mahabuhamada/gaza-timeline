@@ -94,17 +94,19 @@
 <a class="skip" href="#main">تخطَّ إلى المحتوى</a>
 <header class="site-header">
   <div class="wrap">
-    <a class="brand" href="${url('index.html')}" aria-label="${esc(d.site.brand.name)} – الرئيسية">
-      <img src="${src(d.site.brand.logo)}" alt="${esc(d.site.brand.name)}" width="158" height="44">
-    </a>
-    <nav class="nav" id="nav" aria-label="القائمة الرئيسية">
-      ${NAV.map(([h, t, k]) => `<a href="${url(h)}"${k === active ? ' aria-current="page"' : ''}>${t}</a>`).join('')}
-    </nav>
-    <div class="header-cta">
-      <a class="icon-btn" href="${url('initiatives.html')}" aria-label="ابحث في المبادرات">${icon('search')}</a>
-      <a class="btn btn-outline btn-sm" href="${url('contact.html')}">${icon('mail')}<span class="btn-text">تواصل</span></a>
-      <a class="btn btn-primary btn-sm" href="${url('submit.html')}">${icon('bulb')}<span class="btn-text">قدّم فكرتك</span></a>
-      <button class="icon-btn menu-btn" aria-expanded="false" aria-controls="nav" aria-label="القائمة">${icon('menu')}</button>
+    <div class="nav-shell">
+      <a class="brand" href="${url('index.html')}" aria-label="${esc(d.site.brand.name)} – الرئيسية">
+        <img src="${src(d.site.brand.logo)}" alt="${esc(d.site.brand.name)}" width="150" height="42">
+      </a>
+      <nav class="nav" id="nav" aria-label="القائمة الرئيسية">
+        ${NAV.map(([h, t, k, ic]) => `<a href="${url(h)}"${k === active ? ' aria-current="page"' : ''}>${icon(ic)}${t}</a>`).join('')}
+      </nav>
+      <div class="header-cta">
+        <a class="icon-btn" href="${url('initiatives.html')}" aria-label="ابحث في المبادرات">${icon('search')}</a>
+        <a class="btn btn-white btn-sm" href="${url('contact.html')}"><span class="btn-text">تواصل معنا</span><span class="sr-only">تواصل</span>${icon('mail')}</a>
+        <a class="btn btn-primary btn-sm" href="${url('submit.html')}">${icon('bulb')}<span class="btn-text">قدّم فكرتك</span></a>
+        <button class="icon-btn menu-btn" aria-expanded="false" aria-controls="nav" aria-label="القائمة">${icon('menu')}</button>
+      </div>
     </div>
   </div>
 </header>`;
@@ -116,12 +118,11 @@
     return `
 <footer class="site-footer">
   <div class="wrap">
-    <div class="footer-top"><div class="cta"><div><h2>عندك فكرة تخدم مجتمعك؟</h2><p>${esc(s.submit.intro)}</p></div><a class="btn btn-light" href="${url('submit.html')}">${icon('bulb')} قدّم فكرتك الآن</a></div></div>
     <div class="footer-grid">
       <div class="about">
-        <img src="${src(s.brand.logoLight)}" alt="${esc(s.brand.name)}" width="170" height="48">
+        <img src="${src(s.brand.logoLight)}" alt="${esc(s.brand.name)}" width="160" height="45">
         <p>${esc(s.about.text[0])}</p>
-        <div class="socials">${s.contact.social.map((x) => `<a href="${esc(x.url)}" target="_blank" rel="noopener" aria-label="${esc(x.name)}">${icon(socialIcon[x.name] || 'link')}</a>`).join('')}</div>
+        <a class="btn btn-glass btn-sm" href="${url('submit.html')}">${icon('bulb')} قدّم فكرتك</a>
       </div>
       ${col('البنك', [['about.html', 'من نحن'], ['partners.html', 'الشركاء'], ['support.html', 'ادعم بنك المبادرات'], ['contact.html', 'تواصل معنا']])}
       ${col('المحتوى', [['initiatives.html', 'مكتبة المبادرات'], ['ideas.html', 'بنك الأفكار'], ['news.html', 'الإعلانات والأخبار']])}
@@ -133,6 +134,7 @@
           <li><a href="tel:${esc(s.contact.phone)}" dir="ltr">${esc(s.contact.phone)}</a></li>
           <li>${esc(s.contact.offices[0].city)} · فلسطين</li>
         </ul>
+        <div class="socials" style="margin-top:14px">${s.contact.social.map((x) => `<a href="${esc(x.url)}" target="_blank" rel="noopener" aria-label="${esc(x.name)}">${icon(socialIcon[x.name] || 'link')}</a>`).join('')}</div>
       </div>
     </div>
     <div class="footer-bottom">
@@ -141,7 +143,7 @@
     </div>
   </div>
 </footer>
-<a class="fab" href="${url('submit.html')}">${icon('bulb')}<span>قدّم فكرتك</span></a>`;
+<a class="fab" href="${url('submit.html')}">${icon('bulb')} قدّم فكرتك</a>`;
   }
 
   function mountChrome(active) {
