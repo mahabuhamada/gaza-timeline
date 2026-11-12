@@ -131,6 +131,7 @@
           <li><a href="${url('support.html')}">كن شريكًا</a></li>
           <li><a href="${url('privacy.html')}">سياسة الخصوصية</a></li>
           <li><a href="${url('terms.html')}">الشروط والأحكام</a></li>
+          <li><a href="${url('admin/index.html')}">لوحة التحكم</a></li>
         </ul>
       </div>
       <div>
